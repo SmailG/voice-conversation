@@ -56,6 +56,8 @@ func hotkeyTests() {
 
 func deliveryTests() {
     check("tty from device path", "ttys009", ttyName("/dev/ttys009\n"))
+    check("permission message names the setting", "Allow Voice Conversation Hotkey the Microphone to hear you: System Settings › Privacy & Security",
+          permissionMessage("the Microphone", "hear you"))
     check("non-tty rejected", nil, ttyName("/dev/null"))
     let ok = DeliveryState(sessions: ["ttys009", "ttys010"], guarded: [], frontApp: .terminal, frontTTY: "ttys009")
     func with(_ change: (inout DeliveryState) -> Void) -> DeliveryState {

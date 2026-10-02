@@ -55,7 +55,20 @@ final class Controller {
             exit(1)
         }
         Permissions.primeAutomation()
+        Timer.scheduledTimer(withTimeInterval: Self.statusEvery, repeats: true) { _ in controller.recheck() }
         log("ready: double-tap \(hotkey.label) in a Claude Code tab")
+    }
+
+    static let statusEvery = 60.0
+
+    /// Keeps the status file current (a permission can be turned off at any time). Without Input
+    /// Monitoring the tap goes deaf, so restart into the waiting state, which asks for it again.
+    func recheck() {
+        guard Permissions.inputMonitoring else {
+            log("Input Monitoring was turned off; restarting to wait for it")
+            exit(0)
+        }
+        Permissions.writeStatus(dataDir: dataDir, hotkey: hotkey)
     }
 
     /// launchd opens the log O_APPEND, so truncating it in place is safe.
@@ -129,7 +142,15 @@ final class Controller {
 
     func beginListening() {
         guard let id = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
-              let app = TerminalApp(rawValue: id), let tty = terminals.frontTTY(app) else { return }
+              let app = TerminalApp(rawValue: id) else { return }
+        let frontTTY: String?
+        do {
+            frontTTY = try terminals.frontTTY(app)
+        } catch {
+            Permissions.writeStatus(dataDir: dataDir, hotkey: hotkey)
+            return hud.show(permissionMessage("to control \(app.label)", "find the Claude Code tab (Automation)"), for: 6)
+        }
+        guard let tty = frontTTY else { return }
         guard let tab = daemon.tab(tty) else {
             return hud.show("voice-conversation: the speech service is not running (or still loading)", for: 3)
         }
@@ -137,7 +158,8 @@ final class Controller {
         guard tab.voiceInput else { return hud.show("Voice input is not set up: run /speak setup input", for: 4) }
         guard Permissions.microphone == "granted" else {
             requestMicrophone()
-            return hud.show("Allow the microphone: System Settings › Privacy & Security › Microphone", for: 5)
+            Permissions.writeStatus(dataDir: dataDir, hotkey: hotkey)
+            return hud.show(permissionMessage("the Microphone", "hear you"), for: 6)
         }
         daemon.prepare()
         do {
@@ -186,30 +208,36 @@ final class Controller {
         let now = DeliveryState(sessions: tab?.runsClaude == true ? [target.tty] : [],
                                 guarded: tab?.guarded == true ? [target.tty] : [],
                                 frontApp: frontApp,
-                                frontTTY: frontApp == .terminal ? terminals.frontTTY(.terminal) : nil)
-        var how = delivery(app: target.app, tty: target.tty, now: now)
+                                frontTTY: frontApp == .terminal ? (try? terminals.frontTTY(.terminal)) ?? nil : nil)
+        let how = delivery(app: target.app, tty: target.tty, now: now)
         if how == .type && target.app == .terminal && !Permissions.accessibility {
             Permissions.askAccessibility()
-            how = .clipboard
+            return copy(text, permissionMessage("Accessibility", "paste into Terminal") + ". Copied: paste with ⌘V")
         }
         if how == .clipboard {
-            Clipboard.set(text)
             let why = tab == nil ? "the speech service didn't answer"
                 : now.guarded.contains(target.tty) ? "Claude is waiting for an answer"
                 : !now.sessions.contains(target.tty) ? "Claude Code no longer runs in that tab"
                 : "couldn't type there"
-            log("copied to the clipboard (\(why))")
-            return hud.show("Copied (\(why)) — paste with ⌘V", for: 4)
+            return copy(text, "Copied (\(why)) — paste with ⌘V")
         }
         do {
             let submit = Self.setting(dataDir, "autosend")?.trimmingCharacters(in: .whitespacesAndNewlines) == "on"
             try terminals.put(text, app: target.app, tty: target.tty, submit: submit)
             hud.hide()
+        } catch let error as AppleScriptError where error.number == automationRefused {
+            let what = target.app == .terminal ? "to control System Events" : "to control \(target.app.label)"
+            copy(text, permissionMessage(what, "type for you (Automation)") + ". Copied: paste with ⌘V")
         } catch {
             log("could not type into \(target.app) \(target.tty): \(error)")
-            Clipboard.set(text)
-            hud.show("Copied (couldn't type there) — paste with ⌘V", for: 4)
+            copy(text, "Copied (couldn't type there) — paste with ⌘V")
         }
+    }
+
+    func copy(_ text: String, _ message: String) {
+        Clipboard.set(text)
+        log("copied to the clipboard: \(message)")
+        hud.show(message, for: 6)
     }
 }
 

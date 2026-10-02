@@ -67,10 +67,13 @@ final class Terminals {
         return s
     }
 
-    /// The tty of the front tab, e.g. "ttys009"; nil if it can't be read.
-    func frontTTY(_ app: TerminalApp) -> String? {
+    /// The tty of the front tab, e.g. "ttys009"; nil if it can't be read (no window). Throws
+    /// AppleScriptError automationRefused when the user refused Automation of that terminal.
+    func frontTTY(_ app: TerminalApp) throws -> String? {
         do {
             return ttyName(try script(app.rawValue).call("front_tty").stringValue ?? "")
+        } catch let error as AppleScriptError where error.number == automationRefused {
+            throw error
         } catch {
             log("could not read the front tab of \(app): \(error)")
             return nil

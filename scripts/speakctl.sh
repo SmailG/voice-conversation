@@ -105,19 +105,17 @@ autosend_state() {
 
 # "Voice input: double-tap right-option · autosend off · language bs · ready" (only once set up)
 input_state() {
-  local lang helper missing
+  local lang helper state
   [ -f "$DATA/models/whisper/config.json" ] || return
   lang=$(tr -d '[:space:]' 2>/dev/null < "$LANG_FILE"); [[ "$lang" =~ $LANG_RE ]] || lang=auto
-  if ! launchctl print "gui/$(id -u)/$HOTKEY_AGENT" >/dev/null 2>&1; then
-    helper="hotkey helper not running (run /speak setup input)"
-  else
-    if ! missing=$(jq -er '[(if .input_monitoring then empty else "Input Monitoring" end),
-                            (if .microphone == "granted" then empty else "Microphone" end)] | join(", ")' \
-                   "$DATA/hotkey_status.json" 2>/dev/null); then
-      helper="helper state unknown (see hotkey.log in the data dir)"
-    elif [ -n "$missing" ]; then helper="needs $missing (System Settings > Privacy & Security)"
-    else helper="ready"; fi
-  fi
+  state=$(bash "$ROOT/scripts/voice-input-state.sh" "$DATA")
+  case "$state" in
+    "not running") helper="hotkey helper not running (run /speak setup input)" ;;
+    unknown)       helper="helper state unknown (see hotkey.log in the data dir)" ;;
+    "missing: "*)  helper="needs ${state#missing: } (System Settings > Privacy & Security)" ;;
+    "")            helper="off" ;;
+    *)             helper="$state" ;;
+  esac
   echo "Voice input: double-tap $(hotkey_state) · autosend $(autosend_state) · language $lang · $helper"
 }
 

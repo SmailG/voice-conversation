@@ -34,6 +34,9 @@ post() {
     "http://127.0.0.1:$PORT/$1?tty=$(claude_tty)" 2>/dev/null
 }
 
+# Only with voice input set up: otherwise nothing reads the guard, so nothing is sent.
+has_voice_input() { [ -f "$HOME_DIR/models/whisper/config.json" ]; }
+
 # The guard needs only what identifies the call, not tool_response (which can be megabytes).
 guard_fields() {
   if command -v jq >/dev/null 2>&1; then
@@ -44,8 +47,8 @@ guard_fields() {
 }
 
 case "$ACTION" in
-  speak) if [ -e "$HOME_DIR/off" ]; then guard_fields | post guard; else post speak; fi ;;
-  guard) guard_fields | post guard ;;
+  speak) if [ ! -e "$HOME_DIR/off" ]; then post speak; elif has_voice_input; then guard_fields | post guard; fi ;;
+  guard) has_voice_input && guard_fields | post guard ;;
   *) post stop ;;
 esac
 exit 0

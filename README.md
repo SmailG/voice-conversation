@@ -21,9 +21,29 @@ Then, in a Claude Code session:
 /speak setup
 ```
 
-Setup installs the `mlx-audio` runtime as a [uv](https://docs.astral.sh/uv/) tool, downloads the
-voice models (about 4.5 GB, once), and registers a small launchd service that keeps them loaded.
-Re-running it is safe. When it finishes you hear "Speech is ready."
+Setup first shows what it installs and which macOS permissions each choice needs (the same list
+as [below](#what-setup-installs-and-asks-for)), then asks two things:
+
+1. **Mode**: voice replies only, or two-way conversation (you also dictate to Claude).
+2. **Autosend** (two-way only): send a transcript right away, or leave it in the prompt to review
+   (the default).
+
+It then installs the `mlx-audio` runtime as a [uv](https://docs.astral.sh/uv/) tool, downloads the
+voice models (about 4.5 GB, once; +1.5 GB for two-way), and registers a small launchd service that
+keeps them loaded. Re-running it is safe. When it finishes you hear "Speech is ready."
+
+### What setup installs and asks for
+
+No audio or text leaves your Mac; the only network use is downloading the models.
+
+| | Voice replies only | Two-way conversation adds |
+|---|---|---|
+| Installs | `mlx-audio` (uv tool), Kokoro + OmniVoice models, launchd service on 127.0.0.1 | Whisper model, the helper app `~/Applications/Voice Conversation Hotkey.app` (compiled on your Mac) and its LaunchAgent |
+| Hooks send | each reply's text, to the local service | also which permission prompt or question is open, so dictation never answers one |
+| macOS asks for | nothing | Input Monitoring, Microphone, Automation of your terminal; for Terminal.app also System Events and Accessibility ([why](#voice-input)) |
+
+If two-way is set up and a permission is missing or the helper stopped, Claude Code shows a warning
+when a session starts, and the helper says which permission it lacks when you double-tap.
 
 **Requirements:** an Apple Silicon Mac (M1 or later) with macOS 14 Sonoma or newer, `uv`, `jq`,
 `curl`, ~5 GB disk, ~1 GB free memory (~3 GB while the Bosnian voice is loaded). Voice input
@@ -62,11 +82,11 @@ Replies are spoken automatically once setup is done.
 | `/speak limit N` | Speak at most N characters per reply (default 2000; `0` = no limit) |
 | `/speak speed X` | Speaking speed, `1.0`–`1.3`, e.g. `1.25` (default 1.0 ≈ 187 words per minute in English) |
 | `/speak unload N` | Minutes idle before the Bosnian voice unloads (default 10; `0` = keep it loaded while a session is open) |
-| `/speak setup input` | Add [voice input](#voice-input): downloads Whisper (~1.5 GB) and installs the hotkey helper |
+| `/speak setup input` | Add [voice input](#voice-input) to a voice-only install (asks about autosend first) |
 | `/speak lang X` | Voice input language: `auto` (default), `bs`, `hr`, `sr`, `en`. `auto` may label Bosnian as Croatian or Serbian, and short clips can come back in Cyrillic, so `bs` is safer |
 | `/speak hotkey X` | Voice input key, double-tapped: `right-option` (default), `right-command`, `fn`, `off` |
 | `/speak autosend on\|off` | Send the transcript right away (`on`), or leave it in the prompt to edit (`off`, default) |
-| `/speak setup` | Install or repair the speech service |
+| `/speak setup` | Guided install or repair: shows what it installs, asks voice-only or two-way |
 | `/speak uninstall` | Stop and remove the speech service |
 
 The plugin skill is `/voice-conversation:speak`; plain `/speak` works as long as no other command uses that name.

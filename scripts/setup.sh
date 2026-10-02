@@ -1,7 +1,8 @@
 #!/bin/bash
 # voice-conversation setup: install the speech runtime, download voice models, start the daemon.
-#   setup.sh <data_dir>         speech output (the /speak skill passes ${CLAUDE_PLUGIN_DATA})
-#   setup.sh <data_dir> input   add local voice input (Whisper, ~1.5 GB) to an existing setup
+#   setup.sh <data_dir> [speech]  speech output (the /speak skill passes ${CLAUDE_PLUGIN_DATA})
+#   setup.sh <data_dir> input     add voice input (Whisper ~1.5 GB + hotkey helper) to an existing setup
+#   setup.sh <data_dir> both      both at once (the setup flow's two-way choice)
 # Idempotent and safe to re-run: installs are skipped when present, downloads resume.
 set -euo pipefail
 
@@ -204,5 +205,15 @@ case "$MODE" in
     install_whisper
     check_voice_input
     install_hotkey ;;
-  *) fail "unknown setup mode '$MODE' (use: setup.sh <data_dir> [input])" ;;
+  both)  # voice replies, then voice input (the setup flow's two-way choice)
+    migrate_old_install
+    download_models
+    install_files
+    write_plist
+    start_daemon
+    install_whisper
+    check_voice_input
+    install_hotkey
+    finish_migration ;;
+  *) fail "unknown setup mode '$MODE' (use: setup.sh <data_dir> [speech|input|both])" ;;
 esac

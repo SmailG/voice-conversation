@@ -95,8 +95,19 @@ struct DoubleTapDetector {
     }
 }
 
-enum TerminalApp: String {
+enum TerminalApp: String, CaseIterable {
     case iTerm2 = "com.googlecode.iterm2", terminal = "com.apple.Terminal"
+
+    var label: String { self == .iTerm2 ? "iTerm2" : "Terminal" }
+}
+
+/// AppleScript's "not authorized to send Apple events" (errAEEventNotPermitted): an Automation
+/// permission was refused in System Settings.
+let automationRefused = -1743
+
+/// The on-screen message for a permission the helper lacks.
+func permissionMessage(_ what: String, _ why: String) -> String {
+    "Allow Voice Conversation Hotkey \(what) to \(why): System Settings › Privacy & Security"
 }
 
 /// "/dev/ttys009" -> "ttys009"; nil for anything that isn't a terminal name.
