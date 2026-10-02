@@ -1,5 +1,5 @@
 {
-  "description": "voice-conversation: speak replies aloud (Stop), stop speaking when you type (UserPromptSubmit), keep the daemon in sync after updates (SessionStart), and track open permission prompts and questions so voice input never types into one",
+  "description": "voice-conversation: speak replies aloud (Stop), stop speaking when you type (UserPromptSubmit), keep the daemon in sync after updates (SessionStart), warn at start when voice input lacks a macOS permission, and track open permission prompts and questions so voice input never types into one",
   "hooks": {
     "Stop": [
       {
@@ -33,6 +33,16 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sync.sh\"",
             "async": true,
             "timeout": 120
+          }
+        ]
+      },
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/check.sh\"",
+            "timeout": 5
           }
         ]
       }

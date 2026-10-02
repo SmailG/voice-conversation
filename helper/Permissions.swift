@@ -48,6 +48,17 @@ enum Permissions {
         }
     }
 
+    /// Running terminals whose Automation permission was refused (asked without prompting).
+    static func automationDenied(running: [String]) -> [String] {
+        let wildcard: FourCharCode = 0x2A2A_2A2A
+        return TerminalApp.allCases.filter { running.contains($0.rawValue) }.compactMap { app in
+            guard let desc = NSAppleEventDescriptor(bundleIdentifier: app.rawValue).aeDesc else { return nil }
+            let status = AEDeterminePermissionToAutomateTarget(desc, wildcard, wildcard, false)
+            return Int(status) == automationRefused ? app.label : nil
+        }
+    }
+
+    /// Read by /speak status and the session-start warning (scripts/voice-input-state.sh).
     static func writeStatus(dataDir: String, hotkey: Hotkey) {
         let status: [String: Any] = [
             "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?",
@@ -56,8 +67,13 @@ enum Permissions {
             "microphone": microphone,
             "accessibility": accessibility,
         ]
-        guard let data = try? JSONSerialization.data(withJSONObject: status, options: [.sortedKeys]) else { return }
-        try? data.write(to: URL(fileURLWithPath: dataDir).appendingPathComponent("hotkey_status.json"),
-                        options: .atomic)
+        let running = NSWorkspace.shared.runningApplications.compactMap { $0.bundleIdentifier }
+        DispatchQueue.global(qos: .utility).async {
+            var full = status
+            full["automation_denied"] = automationDenied(running: running)
+            guard let data = try? JSONSerialization.data(withJSONObject: full, options: [.sortedKeys]) else { return }
+            try? data.write(to: URL(fileURLWithPath: dataDir).appendingPathComponent("hotkey_status.json"),
+                            options: .atomic)
+        }
     }
 }

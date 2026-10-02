@@ -11,7 +11,8 @@ privately, as described in [SECURITY.md](SECURITY.md). Pull requests use the tem
 | `hooks/hooks.json`, `hooks/tts.sh` | Stop / UserPromptSubmit hooks that forward payloads to the daemon; permission / question hooks that tell it which session shows a menu |
 | `hooks/sync.sh` | SessionStart: copy new daemon code into the data dir after an update; rebuild the hotkey helper if its source changed |
 | `helper/`, `scripts/build-helper.sh` | The voice-input hotkey helper (Swift app + LaunchAgent): `Gate.swift` holds the testable logic (double tap, where text may go, transcript cleanup) |
-| `skills/speak/SKILL.md`, `scripts/speakctl.sh` | The `/speak` command |
+| `skills/speak/SKILL.md`, `scripts/speakctl.sh` | The `/speak` command; `skills/speak/setup-flow.md` is the guided setup (transparency note, questions) |
+| `hooks/check.sh`, `scripts/voice-input-state.sh` | SessionStart warning when two-way voice input lacks a permission or its helper stopped (same state `/speak status` shows) |
 | `scripts/setup.sh`, `scripts/uninstall.sh` | Install / remove the runtime, models and launchd service |
 | `scripts/migrate.sh` | Takes over an install made under the old name `claude-speak` (called by setup) |
 | `scripts/platform.sh` | Apple Silicon / macOS version / Rosetta checks used by setup |

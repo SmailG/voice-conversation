@@ -45,6 +45,9 @@ check "tty param is a terminal name or empty" "1" "$(grep -cE '^/speak\?tty=(tty
 : > "$LOG"; echo '{"session_id":"s1","prompt":"x"}' | CLAUDE_CODE_ENTRYPOINT=cli CLAUDE_PLUGIN_DATA=$DATA bash "$TTS" stop
 check "stop forwards payload with session" "s1" "$(grep -m1 '^/stop?' "$LOG" | cut -d' ' -f2- | jq -r .session_id)"
 : > "$LOG"; echo '{"hook_event_name":"PermissionRequest","tool_name":"Bash"}' | CLAUDE_CODE_ENTRYPOINT=cli CLAUDE_PLUGIN_DATA=$DATA bash "$TTS" guard
+check "no voice input: guard sends nothing" "0" "$(requests)"
+mkdir -p "$DATA/models/whisper"; touch "$DATA/models/whisper/config.json"  # voice input set up
+: > "$LOG"; echo '{"hook_event_name":"PermissionRequest","tool_name":"Bash"}' | CLAUDE_CODE_ENTRYPOINT=cli CLAUDE_PLUGIN_DATA=$DATA bash "$TTS" guard
 check "guard forwards the hook event" "PermissionRequest" "$(grep -m1 '^/guard?' "$LOG" | cut -d' ' -f2- | jq -r .hook_event_name)"
 : > "$LOG"; echo '{"hook_event_name":"PostToolUse","tool_name":"Read","tool_input":{"file_path":"/x"},"tool_response":"BIG"}' \
   | CLAUDE_CODE_ENTRYPOINT=cli CLAUDE_PLUGIN_DATA=$DATA bash "$TTS" guard
@@ -65,7 +68,10 @@ echo '{"last_assistant_message":"hi"}' | CLAUDE_CODE_ENTRYPOINT=cli CLAUDE_PLUGI
 echo '{"prompt":"x"}' | CLAUDE_CODE_ENTRYPOINT=cli CLAUDE_PLUGIN_DATA=$FRESH bash "$TTS" stop
 check "not set up: sends nothing" "0" "$(requests)"
 touch "$DATA/off"; echo '{"hook_event_name":"Stop","last_assistant_message":"hi"}' | CLAUDE_CODE_ENTRYPOINT=cli CLAUDE_PLUGIN_DATA=$DATA bash "$TTS" speak
-check "muted: no speech, only the guard" "/guard" "$(grep -o '^/[a-z]*' "$LOG" | tr '\n' ' ' | sed 's/ $//')"; rm -f "$DATA/off"
+check "muted: no speech, only the guard" "/guard" "$(grep -o '^/[a-z]*' "$LOG" | tr '\n' ' ' | sed 's/ $//')"
+: > "$LOG"; rm -f "$DATA/models/whisper/config.json"
+echo '{"hook_event_name":"Stop"}' | CLAUDE_CODE_ENTRYPOINT=cli CLAUDE_PLUGIN_DATA=$DATA bash "$TTS" speak
+check "muted without voice input: nothing" "0" "$(requests)"; rm -f "$DATA/off"
 
 # --- tts.sh with the daemon down: fast, silent, exit 0
 start=$(python3 -c 'import time; print(time.time())')
@@ -155,7 +161,27 @@ out=$(ctl status 2>&1)  # settings never set: defaults, and no error text in /sp
 check "status: unset settings read as defaults" "1" "$(printf '%s' "$out" | grep -c 'double-tap right-option · autosend off · language auto')"
 check "status: unset settings print no error" "0" "$(printf '%s' "$out" | grep -c 'No such file')"
 mv "$TMP/saved/"* "$DATA/"
+# --- check.sh (SessionStart): warns only when voice input is set up and can't work
+chk() { PATH="$CTLBIN:$PATH" CLAUDE_CODE_ENTRYPOINT="${1:-cli}" CLAUDE_PLUGIN_DATA="$DATA" CLAUDE_PLUGIN_ROOT="$ROOT" bash "$ROOT/hooks/check.sh"; }
+check "check: all granted is silent" "" "$(chk)"
+echo '{"input_monitoring":false,"microphone":"granted","automation_denied":["iTerm2"]}' > "$DATA/hotkey_status.json"
+check "check: names each missing permission" "voice-conversation voice input can't work yet. Voice Conversation Hotkey still needs: Input Monitoring, Automation of iTerm2. Allow it in System Settings > Privacy & Security, in the section of that name." "$(chk | jq -r .systemMessage)"
+check "check: headless runs stay silent" "" "$(chk sdk-cli)"
+check "status: names a refused terminal" "1" "$(ctl status | grep -c 'needs Input Monitoring, Automation of iTerm2')"
+ctl "hotkey off" >/dev/null; check "check: hotkey off is silent" "" "$(chk)"; ctl "hotkey right-option" >/dev/null
+rm -f "$TMP/agent_up"
+check "check: a stopped helper is reported" "1" "$(chk | jq -r .systemMessage | grep -c "hotkey helper isn't running")"
+mv "$DATA/models/whisper/config.json" "$TMP/whisper-config"
+check "check: no voice input is silent" "" "$(chk)"
+mv "$TMP/whisper-config" "$DATA/models/whisper/config.json"
+mv "$DATA/hotkey" "$TMP/hotkey-saved" 2>/dev/null; touch "$TMP/agent_up"
+check "check: an unset hotkey prints no error" "0" "$(chk 2>&1 | grep -c 'No such file')"
+mv "$TMP/hotkey-saved" "$DATA/hotkey" 2>/dev/null
 check "setup asks for speech setup" "[speak] SETUP" "$(ctl setup)"
+check "setup flow file exists" "1" "$([ -f "$ROOT/skills/speak/setup-flow.md" ] && echo 1)"
+check "setup flow names every setup.sh mode" "3" "$(grep -oE '`(speech|both|input)`' "$ROOT/skills/speak/setup-flow.md" | sort -u | wc -l | tr -d ' ')"
+check "setup.sh has a case for every mode the flow names" "3" "$(grep -cE '^  (speech|input|both)\)' "$ROOT/scripts/setup.sh")"
+check "setup takes over an old install in every speech mode" "2" "$(grep -cE '^    migrate_old_install$' "$ROOT/scripts/setup.sh")"
 check "setup input asks for input setup" "[speak] SETUP input" "$(ctl 'setup input')"
 check "setup rejects other targets" "0" "$(ctl 'setup bogus' | grep -c '^\[speak\] SETUP')"
 check "status names plugin" "1" "$(ctl status | grep -c '^\[speak\] voice-conversation ')"
