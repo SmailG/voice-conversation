@@ -11,7 +11,8 @@ You can expect a first response within a week.
 
 ## Scope
 
-voice-conversation runs entirely on your Mac: a launchd service listening on `127.0.0.1` only, hooks
+voice-conversation runs entirely on your Mac: a launchd service listening on `127.0.0.1` only (it refuses requests addressed to any other
+host name, which blocks DNS rebinding from web pages), hooks
 that forward Claude Code's reply text to it, and the `/speak` command. Relevant reports include
 anything that lets another local user or a web page drive the service, command injection through
 `/speak` arguments or reply text, and ways to make the hooks block or break a Claude Code session.

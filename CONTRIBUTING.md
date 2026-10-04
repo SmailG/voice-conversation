@@ -15,7 +15,7 @@ privately, as described in [SECURITY.md](SECURITY.md). Pull requests use the tem
 | `scripts/setup.sh`, `scripts/uninstall.sh` | Install / remove the runtime, models and launchd service |
 | `scripts/migrate.sh` | Takes over an install made under the old name `claude-speak` (called by setup) |
 | `scripts/platform.sh` | Apple Silicon / macOS version / Rosetta checks used by setup |
-| `daemon/` | `speakd.py` (HTTP + MLX worker loop), `engines.py` (load/run Kokoro and OmniVoice), `models.py` (lazy load, idle unload), `sessions.py` (open Claude Code sessions via `ps`), `guard.py` (sessions showing a menu), `stt.py` (Whisper voice input), `settings.py` (the per-user setting files), `player.py` (playback process), `jobs.py` (queueing), `text.py` (cleanup, routing, chunking) |
+| `daemon/` | `speakd.py` (HTTP + MLX worker loop), `engines.py` (load/run Kokoro and OmniVoice), `models.py` (lazy load, idle unload), `sessions.py` (open Claude Code sessions via `ps`), `guard.py` (sessions showing a menu), `localonly.py` (refuses requests not addressed to 127.0.0.1), `stt.py` (Whisper voice input), `settings.py` (the per-user setting files), `player.py` (playback process), `jobs.py` (queueing), `text.py` (cleanup, routing, chunking) |
 
 ## Rules
 

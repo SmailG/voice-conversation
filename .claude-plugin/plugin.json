@@ -1,7 +1,7 @@
 {
   "name": "voice-conversation",
   "displayName": "Voice Conversation",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Speaks Claude Code replies aloud with local, offline text-to-speech on Apple Silicon (Kokoro for English, OmniVoice for Bosnian/Croatian/Serbian). /speak replays the last reply.",
   "author": {
     "name": "SmailG",
