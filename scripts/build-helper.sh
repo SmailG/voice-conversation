@@ -38,8 +38,14 @@ has_swiftc() {  # /usr/bin/swiftc exists on every Mac; it's only a shim without 
   xcode-select -p >/dev/null 2>&1 && xcrun --find swiftc >/dev/null 2>&1
 }
 
+# Sorted bytewise: a glob sorts by the caller's locale (main.swift lands after HUD.swift under
+# en_US.UTF-8, last under C.UTF-8), so sessions from different terminals saw different hashes and
+# rebuilt the app back and forth, wiping its permissions each time.
 source_hash() {
-  { echo "$BUNDLE_FORMAT"; cat "$ROOT"/helper/*.swift; } | shasum -a 256 | cut -c1-16
+  local f
+  { echo "$BUNDLE_FORMAT"
+    printf '%s\n' "$ROOT"/helper/*.swift | LC_ALL=C sort | while IFS= read -r f; do cat "$f"; done
+  } | shasum -a 256 | cut -c1-16
 }
 
 info_plist() {
