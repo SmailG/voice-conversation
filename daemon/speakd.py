@@ -22,13 +22,14 @@ import queue
 import threading
 import time
 import traceback
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import ThreadingHTTPServer
 from urllib.parse import parse_qs
 
 import engines
 import stt
 from guard import PromptGuard, is_tty
 from jobs import CancelRing, Job, JobBoard, queue_age_limit
+from localonly import LocalOnlyHandler
 from models import ModelManager
 from sessions import SessionWatch, runs_claude
 from player import Player
@@ -36,7 +37,7 @@ from settings import (HOME, MIN_SPEED, VOICES_DIR, char_limit, speech_speed, stt
                       unload_minutes)
 from text import CONTROL_MARKER, MERGE_TO, is_bosnian, parse_payload, prepare, split_chunks
 
-NAME, VERSION = "voice-conversation", "0.5.1"
+NAME, VERSION = "voice-conversation", "0.5.2"
 HOST, PORT = "127.0.0.1", int(os.environ.get("VOICE_CONVERSATION_PORT", "8765"))
 LOG_PATH, LOG_MAX_BYTES = os.path.join(HOME, "speakd.log"), 512 * 1024
 MAX_BODY_BYTES = 20 * 1024 * 1024
@@ -196,7 +197,7 @@ class Speaker:
 
 
 def make_handler(speaker: Speaker):
-    class Handler(BaseHTTPRequestHandler):
+    class Handler(LocalOnlyHandler):  # refuses requests not addressed to 127.0.0.1
         def do_POST(self):
             length = int(self.headers.get("Content-Length", 0) or 0)
             if length > MAX_BODY_BYTES:
@@ -287,9 +288,6 @@ def make_handler(speaker: Speaker):
             self.end_headers()
             if body:
                 self.wfile.write(body)
-
-        def log_message(self, format, *args):  # silence per-request logging
-            pass
 
     return Handler
 
