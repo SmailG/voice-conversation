@@ -275,9 +275,11 @@ if [ -x /usr/libexec/PlistBuddy ]; then
     check "sync: hotkey helper built" "1" "$(ls "$SH/Applications/Voice Conversation Hotkey.app/Contents/MacOS" 2>/dev/null | grep -c VoiceConversationHotkey)"
     check "sync: hotkey helper started" "$((KB + 1))" "$(boots)"
     sync_run; check "sync: unchanged helper is not rebuilt or restarted" "$((KB + 1))" "$(boots)"
+    LC_ALL=C sync_run; LC_ALL=en_US.UTF-8 sync_run
+    check "sync: the caller's locale does not trigger a rebuild" "$((KB + 1))" "$(boots)"
     rm -f "$HP"
   else
-    echo "SKIP: 7 hotkey helper checks (no Swift compiler)"
+    echo "SKIP: 8 hotkey helper checks (no Swift compiler)"
   fi
   rm "$SH/Library/LaunchAgents/com.voice-conversation.daemon.plist"; plist "/some/other/install"
   echo "# old" >> "$SD/daemon/text.py"; sync_run
