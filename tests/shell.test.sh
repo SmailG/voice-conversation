@@ -142,6 +142,7 @@ check "no injection via hotkey" "no" "$([ -e "$TMP/pwned5" ] && echo yes || echo
 check "fn warns about other double-Fn apps" "1" "$(ctl 'hotkey fn' | grep -c 'Wispr Flow')"
 check "right option gives no Fn warning" "0" "$(ctl 'hotkey right-option' | grep -c 'Wispr Flow')"
 ctl "autosend on" >/dev/null; check "autosend on" "on" "$(cat "$DATA/autosend")"
+check "autosend before setup made the data dir" "on" "$(PATH="$CTLBIN:$PATH" bash "$CTL" "autosend on" "" "$TMP/new-data" >/dev/null; cat "$TMP/new-data/autosend" 2>/dev/null)"
 for bad in "autosend" "autosend yes" "autosend off; touch $TMP/pwned6"; do
   ctl "$bad" >/dev/null
   check "rejects '$bad'" "on" "$(cat "$DATA/autosend")"
@@ -162,13 +163,21 @@ check "status: unset settings read as defaults" "1" "$(printf '%s' "$out" | grep
 check "status: unset settings print no error" "0" "$(printf '%s' "$out" | grep -c 'No such file')"
 mv "$TMP/saved/"* "$DATA/"
 # --- check.sh (SessionStart): warns only when voice input is set up and can't work
-chk() { PATH="$CTLBIN:$PATH" CLAUDE_CODE_ENTRYPOINT="${1:-cli}" CLAUDE_PLUGIN_DATA="$DATA" CLAUDE_PLUGIN_ROOT="$ROOT" bash "$ROOT/hooks/check.sh"; }
+chk() { PATH="$CTLBIN:$PATH" CLAUDE_CODE_ENTRYPOINT="${1:-cli}" TERM_PROGRAM="${2:-iTerm.app}" CLAUDE_PLUGIN_DATA="$DATA" CLAUDE_PLUGIN_ROOT="$ROOT" bash "$ROOT/hooks/check.sh"; }
 check "check: all granted is silent" "" "$(chk)"
 echo '{"input_monitoring":false,"microphone":"granted","automation_denied":["iTerm2"]}' > "$DATA/hotkey_status.json"
 check "check: names each missing permission" "voice-conversation voice input can't work yet. Voice Conversation Hotkey still needs: Input Monitoring, Automation of iTerm2. Allow it in System Settings > Privacy & Security, in the section of that name." "$(chk | jq -r .systemMessage)"
 check "check: headless runs stay silent" "" "$(chk sdk-cli)"
 check "status: names a refused terminal" "1" "$(ctl status | grep -c 'needs Input Monitoring, Automation of iTerm2')"
 ctl "hotkey off" >/dev/null; check "check: hotkey off is silent" "" "$(chk)"; ctl "hotkey right-option" >/dev/null
+echo '{"input_monitoring":true,"microphone":"granted","automation_denied":["Terminal"]}' > "$DATA/hotkey_status.json"
+check "check: a terminal this session doesn't run in is not a problem" "" "$(chk cli iTerm.app)"
+check "check: the session's own terminal is named" "1" "$(chk cli Apple_Terminal | jq -r .systemMessage | grep -c 'needs: Automation of Terminal\.')"
+check "check: an unsupported terminal has no Automation to ask for" "" "$(chk cli ghostty)"
+mkdir "$DATA/.hotkey-build.lock"
+check "check: silent while an update rebuilds the helper" "" "$(chk cli Apple_Terminal)"
+rmdir "$DATA/.hotkey-build.lock"
+echo '{"input_monitoring":false,"microphone":"granted","automation_denied":["iTerm2"]}' > "$DATA/hotkey_status.json"
 rm -f "$TMP/agent_up"
 check "check: a stopped helper is reported" "1" "$(chk | jq -r .systemMessage | grep -c "hotkey helper isn't running")"
 mv "$DATA/models/whisper/config.json" "$TMP/whisper-config"
@@ -178,6 +187,18 @@ mv "$DATA/hotkey" "$TMP/hotkey-saved" 2>/dev/null; touch "$TMP/agent_up"
 check "check: an unset hotkey prints no error" "0" "$(chk 2>&1 | grep -c 'No such file')"
 mv "$TMP/hotkey-saved" "$DATA/hotkey" 2>/dev/null
 check "setup asks for speech setup" "[speak] SETUP" "$(ctl setup)"
+check "the skill's Read rule is an absolute path" "1" "$(grep -cF 'Read(/${CLAUDE_PLUGIN_ROOT}/' "$ROOT/skills/speak/SKILL.md")"
+if [ "$(uname)" = Darwin ]; then  # voice input without a Swift compiler: refused before any download
+  NOSW="$TMP/noswift"; mkdir -p "$NOSW"
+  printf '#!/bin/sh\nexit 2\n' > "$NOSW/xcode-select"
+  printf '#!/bin/sh\necho "$*" >> "%s/uv.log"\n' "$TMP" > "$NOSW/uv"; chmod +x "$NOSW"/*
+  out=$(HOME="$TMP/swhome" PATH="$NOSW:$PATH" bash "$ROOT/scripts/setup.sh" "$TMP/sw-data" both 2>&1); rc=$?
+  check "setup both without a compiler fails" "1" "$rc"
+  check "setup both without a compiler says how to get one" "1" "$(printf '%s' "$out" | grep -c 'xcode-select --install')"
+  check "setup both without a compiler downloads nothing" "no" "$([ -e "$TMP/uv.log" ] && echo yes || echo no)"
+  HOME="$TMP/swhome" PATH="$NOSW:$PATH" bash "$ROOT/scripts/setup.sh" "$TMP/sw-data" speech >/dev/null 2>&1  # stops at the stub runtime
+  check "speech-only setup doesn't need a compiler" "yes" "$([ -e "$TMP/uv.log" ] && echo yes || echo no)"
+fi
 check "setup flow file exists" "1" "$([ -f "$ROOT/skills/speak/setup-flow.md" ] && echo 1)"
 check "setup flow names every setup.sh mode" "3" "$(grep -oE '`(speech|both|input)`' "$ROOT/skills/speak/setup-flow.md" | sort -u | wc -l | tr -d ' ')"
 check "setup.sh has a case for every mode the flow names" "3" "$(grep -cE '^  (speech|input|both)\)' "$ROOT/scripts/setup.sh")"

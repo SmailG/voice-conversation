@@ -187,7 +187,7 @@ case "$ACTION" in
             say "Usage: /speak hotkey right-option|right-command|fn|off. Currently: $(hotkey_state)"
           fi ;;
   autosend) if [[ "$VALUE" =~ ^(on|off)$ ]]; then
-            printf '%s\n' "$VALUE" > "$AUTOSEND_FILE"
+            mkdir -p "$DATA" && printf '%s\n' "$VALUE" > "$AUTOSEND_FILE"
             if [ "$VALUE" = on ]; then say "Voice input autosend on: the transcript is sent right away"
             else say "Voice input autosend off: the transcript waits in the prompt for you to edit and press Enter"; fi
           else

@@ -7,7 +7,13 @@ DATA="${CLAUDE_PLUGIN_DATA:-}"
 ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 case "${CLAUDE_CODE_ENTRYPOINT:-}" in sdk-*) exit 0 ;; esac
 
-state=$(bash "$ROOT/scripts/voice-input-state.sh" "$DATA")
+[ -d "$DATA/.hotkey-build.lock" ] && exit 0  # an update is rebuilding the helper right now
+case "${TERM_PROGRAM:-}" in
+  iTerm.app) terminal=iTerm2 ;;
+  Apple_Terminal) terminal=Terminal ;;
+  *) terminal=none ;;  # a terminal the helper doesn't type into: no Automation grant matters
+esac
+state=$(bash "$ROOT/scripts/voice-input-state.sh" "$DATA" "$terminal")
 case "$state" in
   "missing: "*)
     msg="voice-conversation voice input can't work yet. Voice Conversation Hotkey still needs: ${state#missing: }. Allow it in System Settings > Privacy & Security, in the section of that name." ;;
