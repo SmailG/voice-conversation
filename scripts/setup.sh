@@ -35,6 +35,9 @@ check_prereqs() {
   for tool in uv jq curl; do
     command -v "$tool" >/dev/null || fail "'$tool' not found. Install it (e.g. brew install $tool) and re-run /speak setup"
   done
+  if [ "$MODE" != speech ] && ! { xcode-select -p >/dev/null 2>&1 && xcrun --find swiftc >/dev/null 2>&1; }; then
+    fail "voice input needs the Xcode Command Line Tools to build its hotkey helper: run 'xcode-select --install', then set up again (nothing was downloaded)"
+  fi
 }
 
 install_runtime() {
@@ -93,6 +96,10 @@ check_voice_input() {
 }
 
 install_hotkey() {
+  if [ "$(tr -d '[:space:]' 2>/dev/null < "$DATA/hotkey")" = "off" ]; then
+    printf 'right-option\n' > "$DATA/hotkey"
+    step "the hotkey was off; it is now double-tap Right Option (/speak hotkey changes it)"
+  fi
   step "building the hotkey helper (~/Applications/Voice Conversation Hotkey.app)"
   local rc=0
   bash "$ROOT/scripts/build-helper.sh" "$DATA" || rc=$?

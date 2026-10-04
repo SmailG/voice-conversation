@@ -59,8 +59,8 @@ Only if the mode is two-way, ask next (single choice, header "Autosend"):
    `[speak] SETUP input`.
 3. Tell the user it has started and roughly how long downloads take on first run. For two-way, add
    that the macOS permission prompts appear near the end, from "Voice Conversation Hotkey".
-4. When it finishes, report its last lines: success, or the error and the fix it suggests. For
-   two-way, end with: "Double-tap Right Option in a Claude Code tab to dictate. Change it later
+4. When it finishes, report its last lines: success, or the error and the fix it suggests. Only
+   when it succeeded and the choice was two-way, end with: "Double-tap Right Option in a Claude Code tab to dictate. Change it later
    with /speak hotkey, /speak autosend and /speak lang."
 
 Do nothing else.

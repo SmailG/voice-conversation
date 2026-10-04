@@ -5,7 +5,7 @@ import subprocess
 import unittest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-OLD_NAME = re.compile(r"(?i:claude[-_]speak)|Claude ?Speak")  # not "Claude speaks"
+OLD_NAME = re.compile(r"claude[-_ ]?speak(?!s\b)", re.IGNORECASE)  # not "Claude speaks"
 # Files that must name the old install to take it over or explain the move.
 MAY_NAME_OLD = {
     "README.md", "CONTRIBUTING.md", "hooks/tts.sh", "scripts/migrate.sh", "scripts/setup.sh",
