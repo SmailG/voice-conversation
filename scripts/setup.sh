@@ -173,7 +173,15 @@ start_daemon() {
   fail "service did not become ready in ${READY_TIMEOUT_S}s; see $DATA/speakd.log"
 }
 
+# /speak uninstall muted the hooks; setting up again means speaking again. A /speak off stays.
+clear_uninstall_mute() {
+  [ "$(tr -d '[:space:]' 2>/dev/null < "$DATA/off")" = "uninstalled" ] || return 0
+  rm -f "$DATA/off"
+  step "unmuted: spoken replies were off since /speak uninstall"
+}
+
 check_prereqs
+[ "$MODE" = input ] || clear_uninstall_mute
 install_runtime
 migrate_old_install() {
   local rc=0
