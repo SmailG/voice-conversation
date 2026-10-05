@@ -198,7 +198,29 @@ if [ "$(uname)" = Darwin ]; then  # voice input without a Swift compiler: refuse
   check "setup both without a compiler downloads nothing" "no" "$([ -e "$TMP/uv.log" ] && echo yes || echo no)"
   HOME="$TMP/swhome" PATH="$NOSW:$PATH" bash "$ROOT/scripts/setup.sh" "$TMP/sw-data" speech >/dev/null 2>&1  # stops at the stub runtime
   check "speech-only setup doesn't need a compiler" "yes" "$([ -e "$TMP/uv.log" ] && echo yes || echo no)"
+  setup_speech() { HOME="$TMP/swhome" PATH="$NOSW:$PATH" bash "$ROOT/scripts/setup.sh" "$TMP/sw-data" "$1" >/dev/null 2>&1; }
+  mkdir -p "$TMP/sw-data"; printf 'uninstalled\n' > "$TMP/sw-data/off"; setup_speech speech
+  check "setup unmutes after /speak uninstall" "no" "$([ -e "$TMP/sw-data/off" ] && echo yes || echo no)"
+  : > "$TMP/sw-data/off"; setup_speech speech
+  check "setup keeps a /speak off mute" "yes" "$([ -e "$TMP/sw-data/off" ] && echo yes || echo no)"
+  SW="$TMP/withswift"; mkdir -p "$SW"; cp "$NOSW/uv" "$SW/"  # a compiler, so input mode passes its checks
+  printf '#!/bin/sh\nexit 0\n' > "$SW/xcode-select"; cp "$SW/xcode-select" "$SW/xcrun"; chmod +x "$SW"/*
+  printf 'uninstalled\n' > "$TMP/sw-data/off"
+  out=$(HOME="$TMP/swhome" PATH="$SW:$PATH" bash "$ROOT/scripts/setup.sh" "$TMP/sw-data" input 2>&1)
+  check "setup input gets past its checks (control)" "1" "$(printf '%s' "$out" | grep -c 'installing mlx-audio')"
+  check "setup input leaves the uninstall mute" "yes" "$([ -e "$TMP/sw-data/off" ] && echo yes || echo no)"
 fi
+
+# --- uninstall.sh: marks its mute for setup; resets the helper's permissions before deleting it
+UH="$TMP/unhome"; UB="$TMP/unbin"; UD="$TMP/undata"; mkdir -p "$UH/Applications/Voice Conversation Hotkey.app" "$UB" "$UD"
+printf '#!/bin/sh\nexit 0\n' > "$UB/launchctl"
+printf '#!/bin/sh\n[ -d "%s" ] && echo present >> "%s" || echo gone >> "%s"\n' \
+  "$UH/Applications/Voice Conversation Hotkey.app" "$TMP/tcc.log" "$TMP/tcc.log" > "$UB/tccutil"
+chmod +x "$UB"/*
+HOME="$UH" PATH="$UB:$PATH" VOICE_CONVERSATION_APP_DIR="$UH/Applications" bash "$ROOT/scripts/uninstall.sh" "$UD" >/dev/null 2>&1
+check "uninstall marks its mute" "uninstalled" "$(cat "$UD/off" 2>/dev/null)"
+check "uninstall resets permissions while the app exists" "present" "$(cat "$TMP/tcc.log" 2>/dev/null)"
+check "uninstall removes the helper app" "no" "$([ -d "$UH/Applications/Voice Conversation Hotkey.app" ] && echo yes || echo no)"
 check "setup flow file exists" "1" "$([ -f "$ROOT/skills/speak/setup-flow.md" ] && echo 1)"
 check "setup flow names every setup.sh mode" "3" "$(grep -oE '`(speech|both|input)`' "$ROOT/skills/speak/setup-flow.md" | sort -u | wc -l | tr -d ' ')"
 check "setup.sh has a case for every mode the flow names" "3" "$(grep -cE '^  (speech|input|both)\)' "$ROOT/scripts/setup.sh")"

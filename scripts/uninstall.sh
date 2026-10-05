@@ -18,12 +18,13 @@ if [ -f "$PLIST" ]; then
 fi
 if [ -f "$HOTKEY_PLIST" ] || [ -d "$HOTKEY_APP" ]; then
   launchctl bootout "gui/$(id -u)/$HOTKEY" >/dev/null 2>&1
+  tccutil reset All "$HOTKEY" >/dev/null 2>&1  # its privacy permissions, while the app still exists
   rm -f "$HOTKEY_PLIST"
   rm -rf "$HOTKEY_APP"
-  tccutil reset All "$HOTKEY" >/dev/null 2>&1  # its privacy permissions
   echo "Removed the voice-input hotkey helper."
 fi
-[ -n "$DATA" ] && touch "$DATA/off" 2>/dev/null  # hooks stay quiet until you run /speak setup again
+# Hooks stay quiet until /speak setup runs again; setup clears this mute, but not one set by /speak off.
+[ -n "$DATA" ] && printf 'uninstalled\n' > "$DATA/off" 2>/dev/null
 echo "Now run: claude plugin uninstall voice-conversation   (removes the plugin and its data dir)"
 echo "Optional, frees ~5 GB (~6.5 GB with voice input): 'uv tool uninstall mlx-audio', and delete these folders in ~/.cache/huggingface/hub:"
 echo "  models--mlx-community--Kokoro-82M-bf16, models--prince-canuma--Kokoro-82M, models--mlx-community--OmniVoice-bfloat16,"

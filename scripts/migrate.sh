@@ -24,8 +24,8 @@ for agent in "$OLD.daemon" "$OLD.hotkey"; do
   rm -f "$AGENTS/$agent.plist"
 done
 if [ -d "$OLD_APP" ]; then
+  tccutil reset All "$OLD.hotkey" >/dev/null 2>&1 || true  # while the app still exists
   rm -rf "$OLD_APP"
-  tccutil reset All "$OLD.hotkey" >/dev/null 2>&1 || true
 fi
 
 # The old service can take a moment to exit; setup refuses to start while the port is taken.
