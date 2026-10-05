@@ -258,6 +258,27 @@ if [ -x /usr/libexec/PlistBuddy ]; then
   echo "# old" >> "$SD/daemon/text.py"; sync_run
   check "sync: changed source restarts once" "1" "$(kicks)"
   check "sync: changed source is copied" "0" "$(cmp -s "$ROOT/daemon/text.py" "$SD/daemon/text.py"; echo $?)"
+  MINE=$(jq -r .version "$ROOT/.claude-plugin/plugin.json")
+  check "sync: records the version that synced" "$MINE" "$(cat "$SD/synced_version" 2>/dev/null)"
+  # Another version's install, as a session started before or after an update holds it.
+  mkroot() {  # mkroot <version>: a copy of this plugin claiming <version>, with a distinct daemon
+    local r="$TMP/root-$1"; rm -rf "$r"; mkdir -p "$r"
+    cp -R "$ROOT/hooks" "$ROOT/scripts" "$ROOT/daemon" "$ROOT/helper" "$ROOT/.claude-plugin" "$r/"
+    jq --arg v "$1" '.version = $v' "$ROOT/.claude-plugin/plugin.json" > "$r/.claude-plugin/plugin.json"
+    echo "# from $1" >> "$r/daemon/text.py"; echo "$r"
+  }
+  sync_from() { HOME="$SH" PATH="$BIN:$PATH" CLAUDE_PLUGIN_ROOT="$1" CLAUDE_PLUGIN_DATA="$SD" bash "$1/hooks/sync.sh"; }
+  K=$(kicks); sync_from "$(mkroot 0.0.1)"
+  check "sync: an older version does not restart the service" "$K" "$(kicks)"
+  check "sync: an older version does not copy its daemon" "0" "$(grep -c 'from 0.0.1' "$SD/daemon/text.py")"
+  echo 0.9.0 > "$SD/synced_version"; sync_from "$(mkroot 0.10.0)"
+  check "sync: a newer version (0.10.0 after 0.9.0) restarts the service" "$((K + 1))" "$(kicks)"
+  check "sync: a newer version records itself" "0.10.0" "$(cat "$SD/synced_version")"
+  sync_from "$(mkroot 0.9.0)"
+  check "sync: 0.9.0 after 0.10.0 is left alone" "$((K + 1))" "$(kicks)"
+  echo "not-a-version" > "$SD/synced_version"; sync_from "$(mkroot 0.0.2)"
+  check "sync: an unreadable record does not block syncing" "$((K + 2))" "$(kicks)"
+  rm -f "$SD/synced_version"; sync_run
   boots() { cat "$KICKS" 2>/dev/null | grep -c bootstrap; }
   if xcode-select -p >/dev/null 2>&1 && xcrun --find swiftc >/dev/null 2>&1; then  # the hotkey helper
     out=$(HOME="$TMP/buildhome" PATH="$BIN:$PATH" bash "$ROOT/scripts/build-helper.sh" "$TMP/builddata" 2>&1); rc=$?
@@ -277,15 +298,17 @@ if [ -x /usr/libexec/PlistBuddy ]; then
     sync_run; check "sync: unchanged helper is not rebuilt or restarted" "$((KB + 1))" "$(boots)"
     LC_ALL=C sync_run; LC_ALL=en_US.UTF-8 sync_run
     check "sync: the caller's locale does not trigger a rebuild" "$((KB + 1))" "$(boots)"
+    OLD=$(mkroot 0.0.1); echo "// older helper" >> "$OLD/helper/main.swift"; sync_from "$OLD"
+    check "sync: an older version does not rebuild the hotkey helper" "$((KB + 1))" "$(boots)"
     rm -f "$HP"
   else
-    echo "SKIP: 8 hotkey helper checks (no Swift compiler)"
+    echo "SKIP: 9 hotkey helper checks (no Swift compiler)"
   fi
   rm "$SH/Library/LaunchAgents/com.voice-conversation.daemon.plist"; plist "/some/other/install"
-  echo "# old" >> "$SD/daemon/text.py"; sync_run
-  check "sync: another install's service is left alone" "1" "$(kicks)"
+  K=$(kicks); echo "# old" >> "$SD/daemon/text.py"; sync_run
+  check "sync: another install's service is left alone" "$K" "$(kicks)"
 else
-  echo "SKIP: 4 sync.sh checks (need macOS PlistBuddy)"
+  echo "SKIP: 13 sync.sh checks (need macOS PlistBuddy)"
 fi
 
 echo "shell tests: $PASS passed, $FAIL failed"
