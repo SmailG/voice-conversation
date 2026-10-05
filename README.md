@@ -1,12 +1,15 @@
 # voice-conversation
 
-Speaks Claude Code replies aloud with local, offline text-to-speech on Apple Silicon.
-English uses [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M); Bosnian, Croatian and
-Serbian use [OmniVoice](https://github.com/k2-fsa/OmniVoice) with a cloned voice. Both run through
-[mlx-audio](https://github.com/Blaizzy/mlx-audio). Optional voice input works the other way:
-double-tap Right Option in a Claude Code tab, speak, and a local
-[Whisper](https://huggingface.co/openai/whisper-large-v3-turbo) transcript lands in the prompt.
-Nothing is sent to a cloud service.
+Talk with Claude Code out loud, entirely on your Mac. Claude speaks each reply as it finishes;
+double-tap Right Option in a Claude Code tab, speak, and your words land in the prompt. Typing
+stops the speech. Nothing is sent to a cloud service.
+
+- **Voice replies**: [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) for English,
+  [OmniVoice](https://github.com/k2-fsa/OmniVoice) with a cloned voice for Bosnian, Croatian and
+  Serbian, both through [mlx-audio](https://github.com/Blaizzy/mlx-audio) on Apple Silicon.
+- **Voice input** (optional): [Whisper large-v3-turbo](https://huggingface.co/openai/whisper-large-v3-turbo),
+  also local. The transcript is typed into the tab you dictated in, never into a permission prompt.
+- **Several sessions**: each one speaks in turn, and typing silences only its own.
 
 ## Install
 
@@ -34,41 +37,23 @@ keeps them loaded. Re-running it is safe. When it finishes you hear "Speech is r
 
 ### What setup installs and asks for
 
-No audio or text leaves your Mac; the only network use is downloading the models.
+No audio or text leaves your Mac; the only network use is setup downloading the runtime (PyPI,
+GitHub) and the models (Hugging Face).
 
 | | Voice replies only | Two-way conversation adds |
 |---|---|---|
 | Installs | `mlx-audio` (uv tool), Kokoro + OmniVoice models, launchd service on 127.0.0.1 | Whisper model, the helper app `~/Applications/Voice Conversation Hotkey.app` (compiled on your Mac) and its LaunchAgent |
-| Hooks send | each reply's text, to the local service | also which permission prompt or question is open, so dictation never answers one |
+| Hooks send (to the local service) | each reply's text, and each prompt you type (it stops speech) | also each tool call's name and input, to tell when a permission prompt or question opens and closes, so dictation never answers one; the service keeps only a hash |
 | macOS asks for | nothing | Input Monitoring, Microphone, Automation of your terminal; for Terminal.app also System Events and Accessibility ([why](#voice-input)) |
 
 If two-way is set up and a permission is missing or the helper stopped, Claude Code shows a warning
-when a session starts, and the helper says which permission it lacks when you double-tap.
+when a session starts, and the helper says which permission it lacks when you double-tap (except
+Input Monitoring: without it the double tap can't be seen, so only the session-start warning reports it).
 
 **Requirements:** an Apple Silicon Mac (M1 or later) with macOS 14 Sonoma or newer, `uv`, `jq`,
 `curl`, ~5 GB disk, ~1 GB free memory (~3 GB while the Bosnian voice is loaded). Voice input
 adds ~1.5 GB disk and needs the Xcode Command Line Tools. Intel Macs are not supported: the speech models run on MLX,
 which needs Apple Silicon. Setup also works from a terminal running under Rosetta.
-
-### Coming from claude-speak
-
-This plugin was called `claude-speak` up to 0.4.0; Claude Code now reserves plugin names that start
-with `claude-`. To move over, keeping your settings and the downloaded models:
-
-```bash
-claude plugin marketplace add SmailG/voice-conversation
-claude plugin install voice-conversation@voice-conversation
-```
-
-Start a new session and run `/voice-conversation:speak setup` (plain `/speak` is ambiguous while
-both plugins are installed). Setup stops the old service and hotkey helper, removes the old helper
-app, copies your settings, and starts everything under the new name. With voice input, macOS asks
-again for the helper's permissions, because it is a new app. Then remove the old plugin:
-
-```bash
-claude plugin uninstall claude-speak@claude-speak
-claude plugin marketplace remove claude-speak
-```
 
 ## Use
 
@@ -100,7 +85,7 @@ The plugin skill is `/voice-conversation:speak`; plain `/speak` works as long as
   dropped, so busy sessions can't stack speech. That covers one long reply ahead of yours,
   not two.
 - **Headless runs** (`claude -p`, Agent SDK, background summarizers) are never spoken.
-- **What is read**: code blocks, tables, URLs and file paths are skipped; long replies are cut
+- **What is read**: code blocks, tables, URLs and file paths in inline code are skipped; long replies are cut
   at a sentence end at the length limit.
 - **Language** is decided per reply: Bosnian/Croatian/Serbian text goes to OmniVoice, everything
   else to Kokoro (`af_heart`). Typical time to first audio: English ~0.3 s, Bosnian ~3 s, or
@@ -122,7 +107,7 @@ Tools: `xcode-select --install`). macOS then asks you to allow it:
 
 | Permission | Why |
 |---|---|
-| Input Monitoring | To see the double tap. The helper only listens (it never blocks or changes a key). It notes that some other key was pressed, which cancels a tap in progress, but never reads which key or what you type |
+| Input Monitoring | To see the double tap. The helper only listens (it never blocks or changes a key). It reads which modifier key changed and notes that some other key was pressed, which cancels a tap in progress, but never reads which other key or what you type |
 | Microphone | To record while you dictate |
 | Automation (iTerm2 / Terminal) | To find the tab running Claude Code and type the transcript into it |
 | Automation (System Events) and Accessibility, Terminal.app only | Terminal.app has no "type text" command, so the helper pastes with ⌘V and restores your clipboard; asked at the first dictation in Terminal.app, which goes to the clipboard |
@@ -178,11 +163,33 @@ Run `/speak uninstall` first (stops and unregisters the service), then
 because other tools may use them; `/speak uninstall` prints how to remove them. It removes the
 hotkey helper app, its LaunchAgent and its privacy permissions.
 
+## Coming from claude-speak
+
+This plugin was called `claude-speak` up to 0.4.0; Claude Code now reserves plugin names that start
+with `claude-`. To move over, keeping your settings and the downloaded models:
+
+```bash
+claude plugin marketplace add SmailG/voice-conversation
+claude plugin install voice-conversation@voice-conversation
+```
+
+Start a new session and run `/voice-conversation:speak setup` (plain `/speak` is ambiguous while
+both plugins are installed). Setup stops the old service and hotkey helper, removes the old helper
+app, copies your settings, and starts everything under the new name. With voice input, macOS asks
+again for the helper's permissions, because it is a new app. Then remove the old plugin:
+
+```bash
+claude plugin uninstall claude-speak@claude-speak
+claude plugin marketplace remove claude-speak
+```
+
 ## Privacy
 
-Everything runs locally. Reply text goes only to the local service on `127.0.0.1`. `/speak`
-reads the current session's transcript in `~/.claude/projects/` to find the last reply. The
-service log records per reply only the session id prefix, engine, length and timings; when
+Everything runs locally. Reply text and your prompts (which stop speech) go only to the local
+service on `127.0.0.1`; with voice input, so do tool calls' names and inputs, of which the service
+keeps only a hash, to tell when a menu is open. `/speak` reads the current session's transcript in
+`~/.claude/projects/` to find the last reply. The service log records per reply the session id
+prefix, engine, length, speed and timings, and per transcription the language and timings; when
 synthesis fails on a chunk, the error line quotes that chunk's first 60 characters. Voice
 input records only between your double tap and the stop; the recording goes to the local service
 and is not saved, and neither log contains a transcript (only its length and timings).
@@ -190,6 +197,7 @@ and is not saved, and neither log contains a transcript (only its length and tim
 ## Licenses
 
 - Code: MIT, see [LICENSE](LICENSE).
-- `voices/`: generated with OmniVoice, whose weights are **CC-BY-NC-4.0**; see [voices/NOTICE](voices/NOTICE).
+- `voices/`: not covered by the MIT license. Generated with OmniVoice, whose weights are
+  **CC-BY-NC-4.0**; see [voices/NOTICE](voices/NOTICE).
 - Models (downloaded at setup, not redistributed here): Kokoro-82M is Apache-2.0; OmniVoice
   weights are CC-BY-NC-4.0 (non-commercial use); Whisper large-v3-turbo is MIT.

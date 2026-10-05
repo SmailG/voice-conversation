@@ -9,12 +9,13 @@ For `[speak] SETUP` show all of this; for `[speak] SETUP input` show only the
 "Two-way conversation adds" part (the user is adding voice input to an existing install).
 
 > **What `/speak setup` installs and asks for.** No audio or text leaves your Mac: the only network
-> use is downloading the models. The source is public: https://github.com/SmailG/voice-conversation
+> use is setup downloading the runtime (PyPI, GitHub) and the models (Hugging Face). The source is
+> public: https://github.com/SmailG/voice-conversation
 >
 > **Voice replies** (Claude speaks its answers):
 > - the `mlx-audio` runtime (a uv tool) and two voice models, ~4.5 GB, downloaded once from Hugging Face
 > - a background service (`com.voice-conversation.daemon`) that listens only on 127.0.0.1
-> - hooks that send each reply's text to that local service
+> - hooks that send each reply's text, and each prompt you type (it stops speech), to that local service
 > - no macOS permission prompts
 >
 > **Two-way conversation adds** (you talk back by double-tapping Right Option in a Claude Code tab):
@@ -22,10 +23,11 @@ For `[speak] SETUP` show all of this; for `[speak] SETUP input` show only the
 > - a small helper app compiled from source on your Mac (`~/Applications/Voice Conversation Hotkey.app`;
 >   needs the Xcode Command Line Tools) and a LaunchAgent that keeps it running
 > - hooks that tell the local service when Claude shows a permission prompt or a question, so
->   dictation can never answer one by accident
+>   dictation can never answer one by accident. To see when a menu closes they send each tool
+>   call's name and input; the service keeps only a hash of it and logs nothing
 > - macOS will ask you to allow the helper:
->   - **Input Monitoring**: to notice the double tap. It only listens; it never blocks keys and
->     never reads what you type.
+>   - **Input Monitoring**: to notice the double tap. It only listens; it never blocks keys,
+>     looks only at which modifier key changed, and never reads what you type.
 >   - **Microphone**: used only between your double tap and the tap that stops it.
 >   - **Automation of iTerm2 / Terminal**: to find the Claude Code tab and type the transcript into it.
 >   - Terminal.app only, asked the first time you dictate there: **Automation of System Events**

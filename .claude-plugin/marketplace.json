@@ -1,6 +1,6 @@
 {
   "name": "voice-conversation",
-  "description": "Local text-to-speech for Claude Code replies",
+  "description": "Local voice conversation for Claude Code: spoken replies and voice input",
   "owner": {
     "name": "SmailG",
     "url": "https://github.com/SmailG"
@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "voice-conversation",
-      "description": "Speaks Claude Code replies aloud with local, offline text-to-speech on Apple Silicon. /speak replays the last reply.",
+      "description": "Talk with Claude Code out loud, locally on Apple Silicon: spoken replies (offline text-to-speech) and optional voice input (local Whisper). /speak replays the last reply.",
       "source": "./"
     }
   ]
