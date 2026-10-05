@@ -33,10 +33,14 @@ privately, as described in [SECURITY.md](SECURITY.md). Pull requests use the tem
 
 ```bash
 python3 -m unittest discover -s tests   # daemon logic + version sync (needs numpy)
-bash tests/shell.test.sh                # hooks and /speak against a fake daemon (needs jq)
+bash tests/shell.test.sh                # hooks, /speak, setup/uninstall/sync with stubs (needs jq, python3)
+bash tests/migrate.test.sh              # taking over a claude-speak install
 bash tests/helper/run.sh                # hotkey helper logic (macOS, needs swiftc)
 claude plugin validate --strict .claude-plugin/plugin.json
 ```
 
 Shell tests are two-sided: each behaviour has a must-happen and a must-not-happen case.
+They stub `launchctl`, `uv` and the network, and use temporary directories, except the replay test,
+which writes a transcript under `~/.claude/projects/voice-conversation-test-<pid>` and removes it on
+exit. On macOS they also run `setup.sh` (stopping at the stubbed runtime) and build the helper.
 For a live check: `claude --plugin-dir .`, run `/speak setup`, and watch `speakd.log`.

@@ -2,7 +2,7 @@
   "name": "voice-conversation",
   "displayName": "Voice Conversation",
   "version": "0.6.3",
-  "description": "Speaks Claude Code replies aloud with local, offline text-to-speech on Apple Silicon (Kokoro for English, OmniVoice for Bosnian/Croatian/Serbian). /speak replays the last reply.",
+  "description": "Talk with Claude Code out loud, locally on Apple Silicon: replies are spoken with offline text-to-speech (Kokoro for English, OmniVoice for Bosnian/Croatian/Serbian), and optional voice input types a local Whisper transcript into the prompt. /speak replays the last reply.",
   "author": {
     "name": "SmailG",
     "url": "https://github.com/SmailG"
@@ -10,5 +10,15 @@
   "homepage": "https://github.com/SmailG/voice-conversation",
   "repository": "https://github.com/SmailG/voice-conversation",
   "license": "MIT",
-  "keywords": ["tts", "text-to-speech", "voice", "accessibility", "mlx", "macos"]
+  "keywords": [
+    "tts",
+    "text-to-speech",
+    "speech-to-text",
+    "voice",
+    "voice-input",
+    "whisper",
+    "accessibility",
+    "mlx",
+    "macos"
+  ]
 }
