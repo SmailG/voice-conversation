@@ -268,8 +268,9 @@ def make_handler(speaker: Speaker):
                                "models": speaker.models.loaded(), "unload_minutes": unload_minutes(),
                                "voice_input": stt.is_installed(HOME),
                                "sessions": ttys, "guarded": speaker.guard.guarded(ttys),
-                               "player": {"restarts": speaker.player.restarts,
-                                          "stuck_s": round(speaker.player.stuck_for(), 1)}}).encode()
+                               "player": {"alive": speaker.player.is_alive(),
+                                          "restarts": speaker.player.restarts,
+                                          "overdue_s": round(speaker.player.overdue_s(), 1)}}).encode()
             self._reply(200 if ready else 503, body)
 
         def _session(self, tty: str | None):  # hotkey helper: one tty's scan is ~20 ms, all is ~0.2 s+
