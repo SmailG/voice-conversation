@@ -88,5 +88,19 @@ class Payload(unittest.TestCase):
         self.assertEqual(t.parse_payload(b"[1, 2]"), ("[1, 2]", None, ""))
 
 
+
+class SpeakCommand(unittest.TestCase):
+    def test_plain_and_plugin_qualified_forms_match(self):
+        for prompt in ["/speak", "/speak again", "  /speak status", "/voice-conversation:speak",
+                       "/voice-conversation:speak status", "/voice-conversation:speak\n"]:
+            with self.subTest(prompt=prompt):
+                self.assertTrue(t.is_speak_command(prompt))
+
+    def test_other_prompts_do_not_match(self):
+        for prompt in ["", "speak", "please /speak", "/speaker", "/voice-conversation:speakers",
+                       "/voice-conversation:setup", "/other:speak-up"]:
+            with self.subTest(prompt=prompt):
+                self.assertFalse(t.is_speak_command(prompt))
+
 if __name__ == "__main__":
     unittest.main()

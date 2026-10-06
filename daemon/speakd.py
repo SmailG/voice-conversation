@@ -35,7 +35,8 @@ from sessions import SessionWatch, runs_claude
 from player import Player
 from settings import (HOME, MIN_SPEED, VOICES_DIR, char_limit, speech_speed, stt_language,
                       unload_minutes)
-from text import CONTROL_MARKER, MERGE_TO, is_bosnian, parse_payload, prepare, split_chunks
+from text import (CONTROL_MARKER, MERGE_TO, is_bosnian, is_speak_command, parse_payload, prepare,
+                  split_chunks)
 
 NAME, VERSION = "voice-conversation", "0.6.3"
 HOST, PORT = "127.0.0.1", int(os.environ.get("VOICE_CONVERSATION_PORT", "8765"))
@@ -98,7 +99,7 @@ class Speaker:
 
     def stop_from(self, session: str | None, prompt: str = "") -> None:
         """A prompt only silences its own session; typing /speak never stops (it may be replaying)."""
-        if prompt.lstrip().startswith("/speak"):
+        if is_speak_command(prompt):
             return
         n = self.board.cancel_session(session) if session else self.board.cancel_all()
         if n:
