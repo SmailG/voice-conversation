@@ -39,7 +39,7 @@ from settings import (HOME, MIN_SPEED, VOICES_DIR, char_limit, speech_speed, stt
 from text import (CONTROL_MARKER, MERGE_TO, is_bosnian, is_speak_command, parse_payload, prepare,
                   split_chunks)
 
-NAME, VERSION = "voice-conversation", "0.6.3"
+NAME, VERSION = "voice-conversation", "0.6.4"
 HOST, PORT = "127.0.0.1", int(os.environ.get("VOICE_CONVERSATION_PORT", "8765"))
 LOG_PATH, LOG_MAX_BYTES = os.path.join(HOME, "speakd.log"), 512 * 1024
 MAX_BODY_BYTES = 20 * 1024 * 1024
