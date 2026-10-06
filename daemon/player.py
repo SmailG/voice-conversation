@@ -163,36 +163,50 @@ class Player:
         # is what unblocks that send (it then fails with a broken pipe and respawns).
         while True:
             time.sleep(self._watch_every_s)
-            child = self._child  # one snapshot: a respawn between reads can't redirect the kill
-            if child.gone:
-                continue
-            if not child.proc.is_alive():
-                child.gone = True
-                continue
-            overdue = self._overdue(child)
-            if overdue > 0:
-                print(f"player missed its deadline by {overdue:.1f}s (stuck in startup or an audio "
-                      "call); restarting it", flush=True)
-                child.gone = True
-                child.proc.kill()
+            try:
+                self._check(self._child)  # one snapshot: a respawn mid-check can't redirect the kill
+            except Exception as e:  # the watchdog must outlive any one bad tick
+                print(f"player watchdog error: {e!r}", flush=True)
+
+    def _check(self, child: _Child) -> None:
+        if child.gone:
+            return
+        if not child.proc.is_alive():
+            child.gone = True
+            return
+        overdue = self._overdue(child)
+        if overdue > 0:
+            print(f"player missed its deadline by {overdue:.1f}s (stuck in startup or an audio "
+                  "call); restarting it", flush=True)
+            child.gone = True
+            child.proc.kill()
+
+    def _try_send(self, item: tuple) -> bool:
+        try:
+            self._child.send_end.send(item)
+            return True
+        except OSError:  # BrokenPipeError: the player died, or the watchdog killed it
+            return False
 
     def send(self, item: tuple) -> None:
         job_id = item[0]
         with self._lock:
-            try:
-                self._child.send_end.send(item)
-            except OSError:  # BrokenPipeError: the player died, or the watchdog killed it
-                print("player gone; starting a new one", flush=True)
-                self._respawn()
-                if job_id == self._last_job:  # it died mid-reply: drop the rest of that reply
-                    self._ring.add(job_id)
-                    return
-                try:
-                    self._child.send_end.send(item)
-                except OSError:  # the new player is gone too (device still wedged): the next send retries
-                    print("new player gone too; dropped this audio", flush=True)
-                    return
-            self._last_job = job_id
+            # A killed child that lingers keeps the pipe open, so "gone" is checked, not just EPIPE.
+            if not self._child.gone and self._try_send(item):
+                self._last_job = job_id
+                return
+            print("player gone; starting a new one", flush=True)
+            self._respawn()
+            if job_id == self._last_job:  # it died mid-reply: drop the rest rather than resume
+                self._ring.add(job_id)
+                return
+            if self._try_send(item):
+                self._last_job = job_id
+                return
+            # The replacement is gone too (device still wedged). Cancel the whole reply, so a later
+            # chunk can't start it mid-sentence; the next reply tries a new player again.
+            print("new player gone too; dropped this reply", flush=True)
+            self._ring.add(job_id)
 
     def close(self) -> None:
         child = self._child

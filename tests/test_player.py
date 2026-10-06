@@ -1,6 +1,8 @@
 import multiprocessing as mp
 import os
+import shutil
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -43,6 +45,20 @@ def hung_at_startup_player(conn, ids, cursor, deadline):
 
 def dying_player(conn, ids, cursor, deadline):
     """Exits as soon as it starts."""
+
+
+def dies_once_then_records_player(conn, ids, cursor, deadline):
+    """The first child exits at once; every later one writes each job id it receives to a file."""
+    log_dir = os.environ["VC_TEST_PLAYER_DIR"]
+    marker = os.path.join(log_dir, "first-died")
+    if not os.path.exists(marker):
+        open(marker, "w").close()
+        return
+    deadline.value = 0.0
+    while True:
+        job_id = conn.recv()[0]
+        with open(os.path.join(log_dir, "received"), "a") as f:
+            f.write(f"{job_id}\n")
 
 
 def wait_for(predicate, timeout=10.0):
@@ -117,6 +133,20 @@ class PlayerWatchdogTest(unittest.TestCase):
         player.send(item(1))
         self.assertEqual(player.restarts, 1)
         self.assertIsNot(player._child, first)
+
+    def test_new_reply_after_a_dead_player_is_delivered_to_the_replacement(self):
+        log_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, log_dir, True)
+        os.environ["VC_TEST_PLAYER_DIR"] = log_dir  # inherited by the spawned children
+        self.addCleanup(os.environ.pop, "VC_TEST_PLAYER_DIR", None)
+        player, ring = self.make(dies_once_then_records_player)
+        first = player._child
+        self.assertTrue(wait_for(lambda: not first.proc.is_alive()))
+        player.send(item(1))
+        received = os.path.join(log_dir, "received")
+        self.assertTrue(wait_for(lambda: os.path.exists(received) and open(received).read() == "1\n"),
+                        "the replacement never got the new reply")
+        self.assertNotIn(1, ring)
 
     def test_reply_interrupted_by_a_kill_is_dropped_not_resumed(self):
         player, ring = self.make(wedged_player)
