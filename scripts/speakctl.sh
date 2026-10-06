@@ -85,6 +85,13 @@ memory_state() {
     | "Bosnian voice \(if .models.bs then "loaded" else "not loaded" end) · \(.sessions | length) session\(if (.sessions | length) == 1 then "" else "s" end) open"' 2>/dev/null
 }
 
+# "playback restarted 2 times ..." when the watchdog had to replace a wedged audio player
+player_state() {
+  curl -s --max-time 1 "http://127.0.0.1:$PORT/health" 2>/dev/null | jq -r '
+    select((.player.restarts // 0) > 0)
+    | "playback restarted \(.player.restarts) time\(if .player.restarts == 1 then "" else "s" end) since the service started (the audio device got stuck; see speakd.log)"' 2>/dev/null
+}
+
 lang_state() {
   local v
   v=$(cat "$LANG_FILE" 2>/dev/null)
@@ -157,6 +164,7 @@ case "$ACTION" in
   status) [ -e "$MUTE" ] && s=OFF || s=ON
           say "voice-conversation $VERSION — speech $s — $(limit_state) — $(speed_state) — $(daemon_state)"
           mem=$(memory_state); [ -n "$mem" ] && say "$mem — $(unload_state)"
+          pl=$(player_state); [ -n "$pl" ] && say "$pl"
           inp=$(input_state); [ -n "$inp" ] && say "$inp" ;;
   limit)  if [[ "$VALUE" =~ ^[0-9]+$ ]] && [ "$VALUE" -le "$MAX_LIMIT" ]; then
             printf '%s\n' "$((10#$VALUE))" > "$LIMIT_FILE"; say "Speech $(limit_state) (0 = no limit)"

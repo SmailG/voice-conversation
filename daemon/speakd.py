@@ -5,7 +5,8 @@
   POST /prepare      start loading Whisper (voice input is about to record)
   POST /transcribe   16-bit PCM WAV body -> {"text", "language"} (local Whisper; text is never logged)
   POST /guard?tty=X  hook JSON: a session opened or closed a menu that typing would answer
-  GET  /health  {"name", "version", "home", "ready", "models", "sessions", "guarded", ...}; 503 while loading
+  GET  /health  {"name", "version", "home", "ready", "models", "sessions", "guarded", "player", ...};
+                503 while loading
   GET  /session?tty=X  {"open", "guarded"} for one terminal (fast: scans only that tty)
   GET  /config  voice-input settings
 /guard, and ?tty=X on /speak and /stop (a reply or prompt closes that session's menus), need the
@@ -35,9 +36,10 @@ from sessions import SessionWatch, runs_claude
 from player import Player
 from settings import (HOME, MIN_SPEED, VOICES_DIR, char_limit, speech_speed, stt_language,
                       unload_minutes)
-from text import CONTROL_MARKER, MERGE_TO, is_bosnian, parse_payload, prepare, split_chunks
+from text import (CONTROL_MARKER, MERGE_TO, is_bosnian, is_speak_command, parse_payload, prepare,
+                  split_chunks)
 
-NAME, VERSION = "voice-conversation", "0.6.3"
+NAME, VERSION = "voice-conversation", "0.6.4"
 HOST, PORT = "127.0.0.1", int(os.environ.get("VOICE_CONVERSATION_PORT", "8765"))
 LOG_PATH, LOG_MAX_BYTES = os.path.join(HOME, "speakd.log"), 512 * 1024
 MAX_BODY_BYTES = 20 * 1024 * 1024
@@ -98,7 +100,7 @@ class Speaker:
 
     def stop_from(self, session: str | None, prompt: str = "") -> None:
         """A prompt only silences its own session; typing /speak never stops (it may be replaying)."""
-        if prompt.lstrip().startswith("/speak"):
+        if is_speak_command(prompt):
             return
         n = self.board.cancel_session(session) if session else self.board.cancel_all()
         if n:
@@ -265,7 +267,10 @@ def make_handler(speaker: Speaker):
             body = json.dumps({"name": NAME, "version": VERSION, "home": HOME, "ready": ready,
                                "models": speaker.models.loaded(), "unload_minutes": unload_minutes(),
                                "voice_input": stt.is_installed(HOME),
-                               "sessions": ttys, "guarded": speaker.guard.guarded(ttys)}).encode()
+                               "sessions": ttys, "guarded": speaker.guard.guarded(ttys),
+                               "player": {"alive": speaker.player.is_alive(),
+                                          "restarts": speaker.player.restarts,
+                                          "overdue_s": round(speaker.player.overdue_s(), 1)}}).encode()
             self._reply(200 if ready else 503, body)
 
         def _session(self, tty: str | None):  # hotkey helper: one tty's scan is ~20 ms, all is ~0.2 s+

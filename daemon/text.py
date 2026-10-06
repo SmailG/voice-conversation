@@ -7,6 +7,9 @@ import json
 import re
 
 CONTROL_MARKER = "[speak]"  # speakctl output prefix; replies starting with it are never spoken
+# Typing /speak (or its plugin-qualified form /voice-conversation:speak) may start a replay, so
+# its own UserPromptSubmit must not stop speech. "/speaker" or "/x:speakers" are other commands.
+SPEAK_COMMAND = re.compile(r"/(?:[\w.-]+:)?speak(?:\s|$)")
 
 # Chunking: Kokoro reads ~15% faster when given a whole paragraph, so English gets
 # sentence-sized chunks (short sentences merged up to ~60 chars). OmniVoice re-reads the voice reference on every call, so short sentences are
@@ -109,3 +112,8 @@ def prepare(text: str, limit: int) -> str:
     """Clean and cut a reply; limit 0 means no limit."""
     text = clean_markdown(text)
     return truncate(text, limit) if limit > 0 else text
+
+
+def is_speak_command(prompt: str) -> bool:
+    """True for a prompt that invokes the /speak skill, plain or plugin-qualified."""
+    return SPEAK_COMMAND.match(prompt.lstrip()) is not None

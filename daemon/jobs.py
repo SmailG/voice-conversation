@@ -35,7 +35,9 @@ class CancelRing:
 
     @classmethod
     def create(cls, ctx: Any) -> "CancelRing":
-        return cls(ctx.Array("q", RING_SIZE), ctx.Value("q", 0))
+        # ids unlocked: the player process only reads them and may be killed at any moment, which
+        # would strand a lock it held; writers are serialised by the cursor lock (parent only).
+        return cls(ctx.Array("q", RING_SIZE, lock=False), ctx.Value("q", 0))
 
     def add(self, job_id: int) -> None:
         with self.cursor.get_lock():
