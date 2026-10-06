@@ -5,7 +5,8 @@
   POST /prepare      start loading Whisper (voice input is about to record)
   POST /transcribe   16-bit PCM WAV body -> {"text", "language"} (local Whisper; text is never logged)
   POST /guard?tty=X  hook JSON: a session opened or closed a menu that typing would answer
-  GET  /health  {"name", "version", "home", "ready", "models", "sessions", "guarded", ...}; 503 while loading
+  GET  /health  {"name", "version", "home", "ready", "models", "sessions", "guarded", "player", ...};
+                503 while loading
   GET  /session?tty=X  {"open", "guarded"} for one terminal (fast: scans only that tty)
   GET  /config  voice-input settings
 /guard, and ?tty=X on /speak and /stop (a reply or prompt closes that session's menus), need the
@@ -266,7 +267,9 @@ def make_handler(speaker: Speaker):
             body = json.dumps({"name": NAME, "version": VERSION, "home": HOME, "ready": ready,
                                "models": speaker.models.loaded(), "unload_minutes": unload_minutes(),
                                "voice_input": stt.is_installed(HOME),
-                               "sessions": ttys, "guarded": speaker.guard.guarded(ttys)}).encode()
+                               "sessions": ttys, "guarded": speaker.guard.guarded(ttys),
+                               "player": {"restarts": speaker.player.restarts,
+                                          "stuck_s": round(speaker.player.stuck_for(), 1)}}).encode()
             self._reply(200 if ready else 503, body)
 
         def _session(self, tty: str | None):  # hotkey helper: one tty's scan is ~20 ms, all is ~0.2 s+
