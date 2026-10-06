@@ -25,8 +25,8 @@ from jobs import CancelRing, StaleFilter
 BUFFER_S = 0.25   # PortAudio output latency; absorbs scheduling hiccups
 BLOCK_S = 0.1     # write granularity, also the cancel reaction time
 CALL_S = 10.0     # write/stop/abort/close are bounded by the 0.25 s buffer: 10 s means a wedged device
-OPEN_S = 30.0     # opening or starting a stream can legitimately take seconds (Bluetooth route wake)
-STARTUP_S = 30.0  # spawn + numpy/sounddevice import (sounddevice runs Pa_Initialize on import)
+OPEN_S = 20.0     # opening or starting a stream can legitimately take seconds (Bluetooth route wake)
+STARTUP_S = 20.0  # spawn + numpy/sounddevice import (sounddevice runs Pa_Initialize on import)
 WATCH_EVERY_S = 1.0
 
 
