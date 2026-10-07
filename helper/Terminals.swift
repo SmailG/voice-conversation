@@ -93,12 +93,32 @@ final class Terminals {
             }
         case .terminal:
             let keys = try script("keys")
-            let saved = Clipboard.snapshot()
-            Clipboard.set(text)
+            let giveBack = Clipboard.lend(text)
+            defer { giveBack() }
             try keys.call("paste_keys")
             Thread.sleep(forTimeInterval: Self.pasteSettle)
             if submit { try keys.call("return_key") }
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.clipboardRestore) { Clipboard.restore(saved) }
+        }
+    }
+}
+
+/// Pastes into whatever has the keyboard focus in the front app: the transcript goes on the
+/// clipboard, a synthetic ⌘V follows (Accessibility, no Automation grant), and the person's own
+/// clipboard comes back once the app has read it.
+enum KeyPaste {
+    static let ansiV: CGKeyCode = 9  // kVK_ANSI_V: where "v" is on a US layout
+
+    static func paste(_ text: String) {
+        let giveBack = Clipboard.lend(text)
+        defer { giveBack() }
+        let vKey = keyCode(typing: "v") ?? ansiV
+        // A private source: the ⌘ on these events must not leak into the session's modifier state,
+        // where the next synthetic key (or the person's) would read as ⌘-something.
+        let source = CGEventSource(stateID: .privateState)
+        for isDown in [true, false] {
+            let event = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: isDown)
+            event?.flags = .maskCommand
+            event?.post(tap: .cghidEventTap)
         }
     }
 }
@@ -106,9 +126,34 @@ final class Terminals {
 enum Clipboard {
     typealias Snapshot = [[NSPasteboard.PasteboardType: Data]]
 
-    static func set(_ text: String) {
+    /// The nspasteboard.org markers: clipboard managers (Raycast, Paste, Maccy, ...) don't keep
+    /// a history entry for it, so dictations don't pile up there.
+    static let transientMarkers = [NSPasteboard.PasteboardType("org.nspasteboard.TransientType"),
+                                   NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")]
+
+    /// `transient`: for the moment of a paste only, so clipboard managers skip it. A copy the
+    /// person pastes by hand is a normal one: if it goes nowhere, their history still has it.
+    static func set(_ text: String, transient: Bool = false) {
+        let item = NSPasteboardItem()
+        item.setString(text, forType: .string)
+        if transient {
+            for marker in transientMarkers { item.setData(Data(), forType: marker) }
+        }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        NSPasteboard.general.writeObjects([item])
+    }
+
+    /// Puts `text` on the clipboard for one paste and returns the call that gives the person's
+    /// clipboard back after `Terminals.clipboardRestore`, unless something was copied meanwhile.
+    static func lend(_ text: String) -> () -> Void {
+        let saved = snapshot()
+        set(text, transient: true)
+        let lent = NSPasteboard.general.changeCount
+        return {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Terminals.clipboardRestore) {
+                if NSPasteboard.general.changeCount == lent { restore(saved) }
+            }
+        }
     }
 
     static func snapshot() -> Snapshot {

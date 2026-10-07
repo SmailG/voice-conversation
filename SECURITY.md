@@ -15,7 +15,9 @@ voice-conversation runs entirely on your Mac: a launchd service listening on `12
 host name, which blocks DNS rebinding from web pages), hooks
 that forward Claude Code's reply text to it, and the `/speak` command. Relevant reports include
 anything that lets a web page or a remote host drive the service, command injection through
-`/speak` arguments or reply text, and ways to make the hooks block or break a Claude Code session.
+`/speak` arguments or reply text, ways to make the hooks block or break a Claude Code session, and
+ways to make the hotkey helper record, or paste a transcript, in an app where no Claude Code
+session runs.
 
 Out of scope: other accounts on the same Mac. The service has no authentication between local
 users, so anyone logged in to the Mac can send it requests (speak text, stop speech, transcribe

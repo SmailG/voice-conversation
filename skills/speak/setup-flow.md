@@ -18,7 +18,7 @@ For `[speak] SETUP` show all of this; for `[speak] SETUP input` show only the
 > - hooks that send each reply's text, and each prompt you type (it stops speech), to that local service
 > - no macOS permission prompts
 >
-> **Two-way conversation adds** (you talk back by double-tapping Right Option in a Claude Code tab):
+> **Two-way conversation adds** (you talk back by double-tapping Right Option in any app where Claude Code runs):
 > - the Whisper speech-recognition model, ~1.5 GB
 > - a small helper app compiled from source on your Mac (`~/Applications/Voice Conversation Hotkey.app`;
 >   needs the Xcode Command Line Tools) and a LaunchAgent that keeps it running
@@ -30,8 +30,11 @@ For `[speak] SETUP` show all of this; for `[speak] SETUP input` show only the
 >     looks only at which modifier key changed, and never reads what you type.
 >   - **Microphone**: used only between your double tap and the tap that stops it.
 >   - **Automation of iTerm2 / Terminal**: to find the Claude Code tab and type the transcript into it.
->   - Terminal.app only, asked the first time you dictate there: **Automation of System Events**
->     and **Accessibility**, because Terminal.app can only receive text as a ⌘V paste.
+>   - Terminal.app only, asked the first time you dictate there: **Automation of System Events**,
+>     because Terminal.app can only receive text as a ⌘V paste.
+>   - Every app but iTerm2 (Terminal.app, Cursor, VS Code, Ghostty, ...), asked the first time you
+>     dictate there: **Accessibility**, to paste with ⌘V where the focus is. Outside iTerm2 and
+>     Terminal.app the transcript is pasted, never sent, so you press Enter.
 >
 > `/speak uninstall` removes the service, the helper and its permissions.
 
@@ -62,7 +65,7 @@ Only if the mode is two-way, ask next (single choice, header "Autosend"):
 3. Tell the user it has started and roughly how long downloads take on first run. For two-way, add
    that the macOS permission prompts appear near the end, from "Voice Conversation Hotkey".
 4. When it finishes, report its last lines: success, or the error and the fix it suggests. Only
-   when it succeeded and the choice was two-way, end with: "Double-tap Right Option in a Claude Code tab to dictate. Change it later
+   when it succeeded and the choice was two-way, end with: "Double-tap Right Option where Claude Code runs to dictate. Change it later
    with /speak hotkey, /speak autosend and /speak lang."
 
 Do nothing else.

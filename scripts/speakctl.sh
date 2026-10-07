@@ -106,6 +106,11 @@ hotkey_state() {
   echo "$v"
 }
 
+# autosend as status shows it: on applies only where a tab is addressable
+autosend_label() {
+  [ "$(autosend_state)" = on ] && echo "on (iTerm2 and Terminal.app)" || echo off
+}
+
 autosend_state() {
   [ "$(tr -d '[:space:]' 2>/dev/null < "$AUTOSEND_FILE")" = "on" ] && echo on || echo off
 }
@@ -123,7 +128,7 @@ input_state() {
     "")            helper="off" ;;
     *)             helper="$state" ;;
   esac
-  echo "Voice input: double-tap $(hotkey_state) · autosend $(autosend_state) · language $lang · $helper"
+  echo "Voice input: double-tap $(hotkey_state) · autosend $(autosend_label) · language $lang · $helper"
 }
 
 # Last final-text reply of this session, from its transcript (works while muted and across
@@ -189,14 +194,14 @@ case "$ACTION" in
   hotkey) if [[ "$VALUE" =~ $HOTKEY_RE ]]; then
             printf '%s\n' "$VALUE" > "$HOTKEY_FILE"
             launchctl kickstart -k "gui/$(id -u)/$HOTKEY_AGENT" >/dev/null 2>&1
-            say "Voice input hotkey: $VALUE$([ "$VALUE" = off ] || echo " (double-tap it in a Claude Code tab)")"
-            [ "$VALUE" = fn ] && say "Note: other apps that use a double Fn (Wispr Flow, macOS dictation) also react to it inside Claude Code tabs."
+            say "Voice input hotkey: $VALUE$([ "$VALUE" = off ] || echo " (double-tap it where Claude Code runs)")"
+            [ "$VALUE" = fn ] && say "Note: other apps that use a double Fn (Wispr Flow, macOS dictation) also react to it in apps where Claude Code runs."
           else
             say "Usage: /speak hotkey right-option|right-command|fn|off. Currently: $(hotkey_state)"
           fi ;;
   autosend) if [[ "$VALUE" =~ ^(on|off)$ ]]; then
             mkdir -p "$DATA" && printf '%s\n' "$VALUE" > "$AUTOSEND_FILE"
-            if [ "$VALUE" = on ]; then say "Voice input autosend on: the transcript is sent right away"
+            if [ "$VALUE" = on ]; then say "Voice input autosend on: the transcript is sent right away in iTerm2 and Terminal.app; in other apps it is pasted for you to send"
             else say "Voice input autosend off: the transcript waits in the prompt for you to edit and press Enter"; fi
           else
             say "Usage: /speak autosend on|off. Currently: $(autosend_state)"

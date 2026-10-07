@@ -16,7 +16,7 @@ BUNDLE_ID="com.voice-conversation.hotkey"
 LABEL="$BUNDLE_ID"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 PORT="${VOICE_CONVERSATION_PORT:-8765}"
-BUNDLE_FORMAT=1  # bump when info_plist() changes, so existing installs rebuild
+BUNDLE_FORMAT=2  # bump when info_plist() changes, so existing installs rebuild
 LOCK="$DATA/.hotkey-build.lock"
 LOCK_STALE_MIN=10
 WORK=""
@@ -62,7 +62,7 @@ info_plist() {
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
   <key>NSMicrophoneUsageDescription</key>
-  <string>Records what you say after you double-tap the hotkey in a Claude Code tab, for local transcription.</string>
+  <string>Records what you say after you double-tap the hotkey where Claude Code runs, for local transcription.</string>
   <key>NSAppleEventsUsageDescription</key>
   <string>Finds the terminal tab running Claude Code and types your transcript into it.</string>
 </dict>

@@ -106,7 +106,7 @@ install_hotkey() {
   [ "$rc" -eq 3 ] && return  # no Swift compiler: the message says how to get it
   [ "$rc" -eq 0 ] || fail "building the hotkey helper failed (exit $rc)"
   step "macOS now asks to allow Voice Conversation Hotkey: Input Monitoring (to see the double tap),"
-  step "Microphone, and control of your terminal. Then double-tap Right Option in a Claude Code tab."
+  step "Microphone, and control of your terminal. Then double-tap Right Option where Claude Code runs."
   step "If no prompt appears: System Settings > Privacy & Security > Input Monitoring > + > ~/Applications/Voice Conversation Hotkey"
 }
 

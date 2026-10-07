@@ -1,7 +1,7 @@
 # voice-conversation
 
 Talk with Claude Code out loud, entirely on your Mac. Claude speaks each reply as it finishes;
-double-tap Right Option in a Claude Code tab, speak, and your words land in the prompt. Typing
+double-tap Right Option where Claude Code runs, speak, and your words land in the prompt. Typing
 stops the speech. Nothing is sent to a cloud service.
 
 - **Voice replies**: [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) for English,
@@ -44,7 +44,7 @@ GitHub) and the models (Hugging Face).
 |---|---|---|
 | Installs | `mlx-audio` (uv tool), Kokoro + OmniVoice models, launchd service on 127.0.0.1 | Whisper model, the helper app `~/Applications/Voice Conversation Hotkey.app` (compiled on your Mac) and its LaunchAgent |
 | Hooks send (to the local service) | each reply's text, and each prompt you type (it stops speech) | also each tool call's name and input, to tell when a permission prompt or question opens and closes, so dictation never answers one; the service keeps only a hash |
-| macOS asks for | nothing | Input Monitoring, Microphone, Automation of your terminal; for Terminal.app also System Events and Accessibility ([why](#voice-input)) |
+| macOS asks for | nothing | Input Monitoring, Microphone, Automation of iTerm2 / Terminal; System Events for Terminal.app; Accessibility for every app but iTerm2 ([why](#voice-input)) |
 
 If two-way is set up and a permission is missing or the helper stopped, Claude Code shows a warning
 when a session starts, and the helper says which permission it lacks when you double-tap (except
@@ -110,24 +110,43 @@ Tools: `xcode-select --install`). macOS then asks you to allow it:
 | Input Monitoring | To see the double tap. The helper only listens (it never blocks or changes a key). It reads which modifier key changed and notes that some other key was pressed, which cancels a tap in progress, but never reads which other key or what you type |
 | Microphone | To record while you dictate |
 | Automation (iTerm2 / Terminal) | To find the tab running Claude Code and type the transcript into it |
-| Automation (System Events) and Accessibility, Terminal.app only | Terminal.app has no "type text" command, so the helper pastes with ⌘V and restores your clipboard; asked at the first dictation in Terminal.app, which goes to the clipboard |
+| Automation (System Events), Terminal.app only | Terminal.app has no "type text" command, so the helper pastes with ⌘V; asked at the first dictation in Terminal.app, which goes to the clipboard |
+| Accessibility, every app but iTerm2 | To paste with ⌘V (and restore your clipboard) where iTerm2's "type text" isn't available; asked at the first dictation that needs it, which goes to the clipboard |
 
-Then, in an **iTerm2 or Terminal.app tab running Claude Code**: double-tap Right Option, speak,
-and tap it once more (or stay silent for 15 s; a recording is capped at 2 minutes). Speech that is
-playing stops first, so the microphone doesn't hear it. The transcript is typed into that tab's
-prompt; with `/speak autosend on` it is also sent.
+Then, in **any app where Claude Code runs**: double-tap Right Option, speak, and tap it once more
+(or stay silent for 15 s; a recording is capped at 2 minutes). Speech that is playing stops first,
+so the microphone doesn't hear it. Where the transcript goes depends on the app:
 
-- **Only in Claude Code**: anywhere else (another app, a terminal tab without Claude Code) the key
-  does nothing, and Right Option keeps working normally, including `@`, `[` and `{` on keyboard
-  layouts that use it: a press counts only when the key is tapped alone.
+| App | Transcript | `/speak autosend on` |
+|---|---|---|
+| iTerm2, Terminal.app | typed into the tab you dictated in | also sent |
+| Anything else: Cursor, VS Code, Antigravity, Ghostty, Warp, ... | pasted where the keyboard focus is, your clipboard restored afterwards | ignored: you press Enter |
+
+Outside iTerm2 and Terminal.app no tab can be addressed, so the paste goes where the focus is: into
+the Claude Code terminal if that is focused, into an editor if that is (⌘Z undoes it). That is
+also why it is never sent there. The copy made for a paste is marked transient, so clipboard
+managers don't keep it; a transcript left on the clipboard for you to paste is a normal copy.
+
+- **A missed paste is lost**: the helper can't see whether ⌘V landed. If the focus was on
+  something that takes no text, or the app dropped the keystroke, nothing appears, and half a
+  second later your previous clipboard is back: dictate again. If you copy something yourself in
+  that half second, your copy wins and the old clipboard isn't put back. ⌘V is sent from the key
+  that types "v" in your keyboard layout, so Dvorak and AZERTY work too.
+
+- **Only where Claude Code runs**: in an app without a Claude Code session (and in an iTerm2 or
+  Terminal.app tab without one) the key does nothing, and Right Option keeps working normally,
+  including `@`, `[` and `{` on keyboard layouts that use it: a press counts only when the key is
+  tapped alone. A session inside tmux or screen belongs to no app (its server runs on its own),
+  so the key does nothing there.
 - **Never into a menu**: while that session shows a permission prompt, a question, a plan to
   approve or an MCP form, the transcript goes to the clipboard instead (a "yes" or "2" would
   answer the menu). After you answer a permission prompt with "No" or Esc, this lasts until you
-  send your next prompt. The same happens if the tab stopped running Claude Code, or if
-  Terminal.app is no longer the active app when the transcript is ready. Other one-key prompts
-  Claude Code may show (such as a feedback survey) are not detected.
+  send your next prompt. In apps other than iTerm2 and Terminal.app, any session in that app
+  showing a menu counts. The same happens if Claude Code stopped running there, or if you switched
+  to another app (or, in Terminal.app, another tab) before the transcript was ready. Other one-key
+  prompts Claude Code may show (such as a feedback survey) are not detected.
 - **Fn**: `/speak hotkey fn` works, but other apps that use a double Fn (Wispr Flow, macOS
-  dictation) also see it. That only matters inside Claude Code tabs, where the helper reacts.
+  dictation) also see it. That only matters in apps where Claude Code runs, where the helper reacts.
 - **Speed**: about 1 s to transcribe 15 s of speech, plus ~2 s the first time while Whisper loads.
   Whisper unloads like the Bosnian voice.
 - **After an update that changes the helper**, macOS asks for the permissions again: the helper
@@ -143,6 +162,8 @@ UserPromptSubmit ──► tts.sh stop ─┘   generates sentence chunks with M
 /speak ──► scripts/speakctl.sh ───┘   while earlier chunks play            generation can't stutter it)
 
 double tap ──► Voice Conversation Hotkey ──► records ──► speakd /transcribe (Whisper) ──► types into the tab
+                │                                         (iTerm2, Terminal.app) or pastes where the focus is
+                └─► speakd /session (that tab) or /host (any other app: its Claude Code sessions, by process tree)
 permission / question hooks ──► tts.sh guard ──► speakd (which sessions show a menu)
 ```
 

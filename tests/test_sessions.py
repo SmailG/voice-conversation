@@ -3,7 +3,8 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "daemon"))
-from sessions import Session, SessionWatch, parse_sessions, runs_claude  # noqa: E402
+from sessions import (Session, SessionWatch, host_payload, parse_sessions, parse_pid, runs_claude,  # noqa: E402
+                      sessions_under)
 
 # Shape of `ps -axo pid=,tty=,args=` on a Mac running Claude Code 2.1 (session ids made up).
 PS = """\
@@ -21,6 +22,77 @@ PS = """\
   112 ??       claude --resume 55555555-6666-7777-8888-999999999999
 """
 
+
+# Shape of `ps -axo pid=,ppid=,tty=,args=`: one Cursor window with a Claude terminal, a plain shell
+# terminal and a headless run; Ghostty with a Claude tab and a tmux client; the tmux server, which
+# launchd adopts; an iTerm2 session; and a session whose parent is gone.
+PS_TREE = """\
+    1     0 ??       /sbin/launchd
+  500     1 ??       /Applications/Cursor.app/Contents/MacOS/Cursor
+  510   500 ??       /Applications/Cursor.app/Contents/Frameworks/Cursor Helper (Plugin).app/Contents/MacOS/Cursor Helper (Plugin) terminal pty-host
+  520   510 ttys010  /bin/zsh -il
+  530   520 ttys010  claude --dangerously-skip-permissions
+  540   510 ttys012  /bin/zsh -il
+  541   540 ttys012  claude -p summarize this
+  600     1 ??       /Applications/Ghostty.app/Contents/MacOS/ghostty
+  610   600 ttys020  /usr/bin/login -flp u /bin/zsh
+  620   610 ttys020  -zsh
+  630   620 ttys020  claude --resume 00000000-1111-2222-3333-444444444444
+  640   600 ttys021  /usr/bin/login -flp u /bin/zsh
+  650   640 ttys021  tmux attach -t work
+  700     1 ??       tmux new -s work
+  710   700 ttys030  -zsh
+  720   710 ttys030  claude
+  800     1 ??       /Applications/iTerm.app/Contents/MacOS/iTerm2
+  810   800 ttys040  -zsh
+  820   810 ttys040  claude
+  900   999 ttys050  claude
+"""
+
+
+class SessionsUnderTest(unittest.TestCase):
+    def test_finds_the_interactive_session_inside_an_app(self):
+        self.assertEqual(sessions_under(PS_TREE, 500), [Session(530, "ttys010")])
+
+    def test_headless_run_inside_the_app_is_not_a_session(self):
+        self.assertNotIn(541, [s.pid for s in sessions_under(PS_TREE, 500)])
+
+    def test_each_app_sees_only_its_own_sessions(self):
+        self.assertEqual(sessions_under(PS_TREE, 600), [Session(630, "ttys020")])
+        self.assertEqual(sessions_under(PS_TREE, 800), [Session(820, "ttys040")])
+
+    def test_a_tmux_session_belongs_to_no_terminal_app(self):
+        # The tmux server is launchd's child, so the app hosting the tmux client can't reach it.
+        hosts = [pid for pid in (500, 600, 800) if 720 in [s.pid for s in sessions_under(PS_TREE, pid)]]
+        self.assertEqual(hosts, [])
+
+    def test_an_app_with_no_session_and_an_unknown_pid(self):
+        self.assertEqual(sessions_under(PS_TREE, 510 + 1), [])
+        self.assertEqual(sessions_under(PS_TREE, 4242), [])
+
+    def test_launchd_is_never_a_host(self):
+        self.assertEqual(sessions_under(PS_TREE, 1), [])
+
+    def test_a_parent_loop_does_not_hang(self):
+        self.assertEqual(sessions_under("  10    11 ttys001  claude\n  11    10 ttys001  -zsh\n", 77), [])
+
+    def test_empty_and_garbage_output(self):
+        self.assertEqual(sessions_under("", 500), [])
+        self.assertEqual(sessions_under("not ps output\n  x y z", 500), [])
+
+
+class HostPayloadTest(unittest.TestCase):
+    def test_lists_the_app_sessions_with_their_menu_state(self):
+        self.assertEqual(host_payload(PS_TREE, 500, guarded=["ttys010", "ttys040"]),
+                         {"pid": 500, "sessions": [{"tty": "ttys010", "guarded": True}]})
+        self.assertEqual(host_payload(PS_TREE, 600, guarded=[]),
+                         {"pid": 600, "sessions": [{"tty": "ttys020", "guarded": False}]})
+
+    def test_parse_pid_accepts_only_a_plain_positive_number(self):
+        self.assertEqual(parse_pid("55386"), 55386)
+        for bad in [None, "", "0", "1", "-5", "12a", " 42", "1e3", "99999999999", "²", "٤٢"]:
+            with self.subTest(bad=bad):
+                self.assertIsNone(parse_pid(bad))
 
 class ParseSessionsTest(unittest.TestCase):
     def test_finds_interactive_sessions_only(self):

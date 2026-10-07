@@ -2,7 +2,7 @@
 //   Input Monitoring  see the double tap (a listen-only event tap; keys are never consumed or logged)
 //   Microphone        record what you say
 //   Automation        ask iTerm2 / Terminal which tab is in front and type into it
-//   Accessibility     Terminal.app only: paste with Cmd+V and press Return
+//   Accessibility     every app but iTerm2: paste with Cmd+V (Terminal.app also presses Return)
 
 import AVFoundation
 import AppKit
