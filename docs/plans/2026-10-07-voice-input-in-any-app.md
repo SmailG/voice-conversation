@@ -1,6 +1,6 @@
 # Voice input in any app that runs Claude Code
 
-Status: accepted, 2026-10-07. Target release 0.7.0.
+Status: implemented, 2026-10-07, in release 0.7.0.
 
 ## Goal
 
@@ -44,6 +44,12 @@ Today the helper ignores every app except iTerm2 and Terminal.app, silently.
    something was copied meanwhile. A transcript left on the clipboard for the person to paste
    (a guard refused) is a normal copy, so it survives in their history if it goes nowhere.
 5. **Sessions in tmux or screen** have no host app in their ancestry, so their app doesn't arm.
+6. **A missed paste is lost (accepted, 2026-10-07).** The helper can't see whether ⌘V landed; when
+   it didn't, the lent copy is gone once the clipboard is restored. Accepted over keeping the
+   transcript on the clipboard (that would replace the person's clipboard after every dictation)
+   because a missed paste is visible and dictating again is cheap.
+7. **⌘V uses the key that types "v" with ⌘ held** in the current layout (US position as a
+   fallback), so non-QWERTY layouts paste.
 
 ## Considered and dropped: the IDE focus check
 
@@ -77,7 +83,17 @@ Revisit it as an opt-in if pastes into editors become a nuisance or autosend in 
   changed front app, a guarded session.
 - Mutation checks: dropping each guard must fail a test.
 
-## Verification before merge
+## Verification
+
+Results (2026-10-07), with a harness built from the shipped `Terminals.swift` and
+`KeyLayout.swift`, pasting into `cat` with a sentinel on the clipboard:
+- Ghostty: 10/10 exact (before the review fixes); 7/7 exact on the final code, stopped at run 8
+  when Ghostty lost focus; one earlier final-code run was 9/10, one paste swallowed while the
+  harness still sent ⌘-tainted Returns. The sentinel never appeared, and the clipboard was
+  restored every time.
+- Cursor: 10/10 exact, sentinel never pasted, clipboard restored 10/10.
+
+Planned checks:
 
 1. **Clipboard race** (blocks the release). A Cursor terminal and a Ghostty pane, each running
    `cat > file`, with a sentinel on the clipboard. Deliver a known transcript 10 times per host

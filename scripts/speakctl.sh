@@ -106,6 +106,11 @@ hotkey_state() {
   echo "$v"
 }
 
+# autosend as status shows it: on applies only where a tab is addressable
+autosend_label() {
+  [ "$(autosend_state)" = on ] && echo "on (iTerm2 and Terminal.app)" || echo off
+}
+
 autosend_state() {
   [ "$(tr -d '[:space:]' 2>/dev/null < "$AUTOSEND_FILE")" = "on" ] && echo on || echo off
 }
@@ -123,7 +128,7 @@ input_state() {
     "")            helper="off" ;;
     *)             helper="$state" ;;
   esac
-  echo "Voice input: double-tap $(hotkey_state) · autosend $(autosend_state) · language $lang · $helper"
+  echo "Voice input: double-tap $(hotkey_state) · autosend $(autosend_label) · language $lang · $helper"
 }
 
 # Last final-text reply of this session, from its transcript (works while muted and across

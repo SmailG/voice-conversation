@@ -10,13 +10,13 @@ privately, as described in [SECURITY.md](SECURITY.md). Pull requests use the tem
 |---|---|
 | `hooks/hooks.json`, `hooks/tts.sh` | Stop / UserPromptSubmit hooks that forward payloads to the daemon; permission / question hooks that tell it which session shows a menu |
 | `hooks/sync.sh` | SessionStart: copy new daemon code into the data dir after an update; rebuild the hotkey helper if its source changed |
-| `helper/`, `scripts/build-helper.sh` | The voice-input hotkey helper (Swift app + LaunchAgent): `Gate.swift` holds the testable logic (double tap, where text may go, transcript cleanup) |
+| `helper/`, `scripts/build-helper.sh` | The voice-input hotkey helper (Swift app + LaunchAgent): `Gate.swift` holds the testable logic (double tap, where text may go, the any-app arm and paste guards, transcript cleanup); `Terminals.swift` types into iTerm2/Terminal.app and pastes elsewhere (`KeyPaste`, `Clipboard.lend`); `KeyLayout.swift` finds the key that types "v" |
 | `skills/speak/SKILL.md`, `scripts/speakctl.sh` | The `/speak` command; `skills/speak/setup-flow.md` is the guided setup (transparency note, questions) |
 | `hooks/check.sh`, `scripts/voice-input-state.sh` | SessionStart warning when two-way voice input lacks a permission or its helper stopped (same state `/speak status` shows) |
 | `scripts/setup.sh`, `scripts/uninstall.sh` | Install / remove the runtime, models and launchd service |
 | `scripts/migrate.sh` | Takes over an install made under the old name `claude-speak` (called by setup) |
 | `scripts/platform.sh` | Apple Silicon / macOS version / Rosetta checks used by setup |
-| `daemon/` | `speakd.py` (HTTP + MLX worker loop), `engines.py` (load/run Kokoro and OmniVoice), `models.py` (lazy load, idle unload), `sessions.py` (open Claude Code sessions via `ps`), `guard.py` (sessions showing a menu), `localonly.py` (refuses requests not addressed to 127.0.0.1), `stt.py` (Whisper voice input), `settings.py` (the per-user setting files), `player.py` (playback process), `jobs.py` (queueing), `text.py` (cleanup, routing, chunking) |
+| `daemon/` | `speakd.py` (HTTP + MLX worker loop), `engines.py` (load/run Kokoro and OmniVoice), `models.py` (lazy load, idle unload), `sessions.py` (open Claude Code sessions via `ps`, and which app hosts them for `/host`), `guard.py` (sessions showing a menu), `localonly.py` (refuses requests not addressed to 127.0.0.1), `stt.py` (Whisper voice input), `settings.py` (the per-user setting files), `player.py` (playback process), `jobs.py` (queueing), `text.py` (cleanup, routing, chunking) |
 
 ## Rules
 

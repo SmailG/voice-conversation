@@ -127,6 +127,12 @@ the Claude Code terminal if that is focused, into an editor if that is (⌘Z und
 also why it is never sent there. The copy made for a paste is marked transient, so clipboard
 managers don't keep it; a transcript left on the clipboard for you to paste is a normal copy.
 
+- **A missed paste is lost**: the helper can't see whether ⌘V landed. If the focus was on
+  something that takes no text, or the app dropped the keystroke, nothing appears, and half a
+  second later your previous clipboard is back: dictate again. If you copy something yourself in
+  that half second, your copy wins and the old clipboard isn't put back. ⌘V is sent from the key
+  that types "v" in your keyboard layout, so Dvorak and AZERTY work too.
+
 - **Only where Claude Code runs**: in an app without a Claude Code session (and in an iTerm2 or
   Terminal.app tab without one) the key does nothing, and Right Option keeps working normally,
   including `@`, `[` and `{` on keyboard layouts that use it: a press counts only when the key is
@@ -156,6 +162,8 @@ UserPromptSubmit ──► tts.sh stop ─┘   generates sentence chunks with M
 /speak ──► scripts/speakctl.sh ───┘   while earlier chunks play            generation can't stutter it)
 
 double tap ──► Voice Conversation Hotkey ──► records ──► speakd /transcribe (Whisper) ──► types into the tab
+                │                                         (iTerm2, Terminal.app) or pastes where the focus is
+                └─► speakd /session (that tab) or /host (any other app: its Claude Code sessions, by process tree)
 permission / question hooks ──► tts.sh guard ──► speakd (which sessions show a menu)
 ```
 

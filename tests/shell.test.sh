@@ -150,7 +150,7 @@ done
 check "no injection via autosend" "no" "$([ -e "$TMP/pwned6" ] && echo yes || echo no)"
 check "status: no voice-input line before setup input" "0" "$(ctl status | grep -c 'Voice input')"
 mkdir -p "$DATA/models/whisper"; touch "$DATA/models/whisper/config.json"
-check "status: helper not running" "1" "$(ctl status | grep -c 'Voice input: double-tap right-option · autosend on · language en · hotkey helper not running')"
+check "status: helper not running" "1" "$(ctl status | grep -c 'Voice input: double-tap right-option · autosend on (iTerm2 and Terminal.app) · language en · hotkey helper not running')"
 touch "$TMP/agent_up"
 check "status: no status file is not 'ready'" "1" "$(ctl status | grep -c 'helper state unknown')"
 echo '{"input_monitoring":true,"microphone":"not asked"}' > "$DATA/hotkey_status.json"
