@@ -90,7 +90,7 @@ class HostPayloadTest(unittest.TestCase):
 
     def test_parse_pid_accepts_only_a_plain_positive_number(self):
         self.assertEqual(parse_pid("55386"), 55386)
-        for bad in [None, "", "0", "1", "-5", "12a", " 42", "1e3", "99999999999"]:
+        for bad in [None, "", "0", "1", "-5", "12a", " 42", "1e3", "99999999999", "²", "٤٢"]:
             with self.subTest(bad=bad):
                 self.assertIsNone(parse_pid(bad))
 

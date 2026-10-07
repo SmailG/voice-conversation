@@ -110,6 +110,12 @@ func hostTests() {
                         sessions: one + [HostSession(tty: "ttys011", guarded: true)]))
 }
 
+func keyLayoutTests() {
+    // Whatever the machine's layout, a Latin one has a key for "v" with ⌘ held, and it types back "v".
+    check("a key types v with command held", true, keyCode(typing: "v") != nil)
+    check("no key types an emoji", nil, keyCode(typing: "\u{1F600}"))
+}
+
 func sanitizeTests() {
     check("newlines become spaces", "fix the bug and run tests", sanitizeTranscript("fix the bug\nand run\r\ntests\n"))
     check("escape sequences neutralised", "[31m red", sanitizeTranscript("\u{1B}[31m red"))
@@ -151,6 +157,7 @@ struct GateTests {
         hotkeyTests()
         deliveryTests()
         hostTests()
+        keyLayoutTests()
         sanitizeTests()
         wavTests()
         appleScriptTests()

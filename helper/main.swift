@@ -57,7 +57,7 @@ final class Controller {
         }
         Permissions.primeAutomation()
         Timer.scheduledTimer(withTimeInterval: Self.statusEvery, repeats: true) { _ in controller.recheck() }
-        log("ready: double-tap \(hotkey.label) in a Claude Code tab")
+        log("ready: double-tap \(hotkey.label) where Claude Code runs")
     }
 
     static let statusEvery = 60.0

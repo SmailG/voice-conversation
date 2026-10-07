@@ -38,9 +38,11 @@ Today the helper ignores every app except iTerm2 and Terminal.app, silently.
      question (the daemon's guard), the transcript goes to the clipboard.
 3. **Autosend only in iTerm2 and Terminal.app**, where the target tab is known by its tty.
    Elsewhere the paste waits for Enter; `/speak status` and the README say so.
-4. **The clipboard copy is transient.** Every transcript the helper puts on the clipboard carries
-   `org.nspasteboard.TransientType` and `org.nspasteboard.ConcealedType`, so clipboard managers
-   don't keep a history of dictations. This applies to the Terminal.app path too.
+4. **The paste copy is transient.** The copy made for one paste (here and in the Terminal.app path)
+   carries `org.nspasteboard.TransientType` and `org.nspasteboard.ConcealedType`, so clipboard
+   managers keep no history of it, and the person's clipboard comes back afterwards unless
+   something was copied meanwhile. A transcript left on the clipboard for the person to paste
+   (a guard refused) is a normal copy, so it survives in their history if it goes nowhere.
 5. **Sessions in tmux or screen** have no host app in their ancestry, so their app doesn't arm.
 
 ## Considered and dropped: the IDE focus check

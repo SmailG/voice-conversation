@@ -96,7 +96,7 @@ MAX_PID = 10_000_000  # far above macOS's limit (99998); rejects absurd query va
 
 def parse_pid(value: str | None) -> int | None:
     """An app pid from a query string: digits only, above launchd's 1, below MAX_PID."""
-    if not value or not value.isdigit() or len(value) > len(str(MAX_PID)):
+    if not value or not (value.isascii() and value.isdigit()) or len(value) > len(str(MAX_PID)):
         return None
     pid = int(value)
     return pid if 1 < pid < MAX_PID else None

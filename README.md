@@ -44,7 +44,7 @@ GitHub) and the models (Hugging Face).
 |---|---|---|
 | Installs | `mlx-audio` (uv tool), Kokoro + OmniVoice models, launchd service on 127.0.0.1 | Whisper model, the helper app `~/Applications/Voice Conversation Hotkey.app` (compiled on your Mac) and its LaunchAgent |
 | Hooks send (to the local service) | each reply's text, and each prompt you type (it stops speech) | also each tool call's name and input, to tell when a permission prompt or question opens and closes, so dictation never answers one; the service keeps only a hash |
-| macOS asks for | nothing | Input Monitoring, Microphone, Automation of your terminal; for Terminal.app also System Events and Accessibility ([why](#voice-input)) |
+| macOS asks for | nothing | Input Monitoring, Microphone, Automation of iTerm2 / Terminal; System Events for Terminal.app; Accessibility for every app but iTerm2 ([why](#voice-input)) |
 
 If two-way is set up and a permission is missing or the helper stopped, Claude Code shows a warning
 when a session starts, and the helper says which permission it lacks when you double-tap (except
@@ -124,8 +124,8 @@ so the microphone doesn't hear it. Where the transcript goes depends on the app:
 
 Outside iTerm2 and Terminal.app no tab can be addressed, so the paste goes where the focus is: into
 the Claude Code terminal if that is focused, into an editor if that is (⌘Z undoes it). That is
-also why it is never sent there. Transcripts put on the clipboard are marked transient, so
-clipboard managers don't keep them.
+also why it is never sent there. The copy made for a paste is marked transient, so clipboard
+managers don't keep it; a transcript left on the clipboard for you to paste is a normal copy.
 
 - **Only where Claude Code runs**: in an app without a Claude Code session (and in an iTerm2 or
   Terminal.app tab without one) the key does nothing, and Right Option keeps working normally,
