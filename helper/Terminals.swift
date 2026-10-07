@@ -112,7 +112,9 @@ enum KeyPaste {
     static func paste(_ text: String) {
         let saved = Clipboard.snapshot()
         Clipboard.set(text)
-        let source = CGEventSource(stateID: .combinedSessionState)
+        // A private source: the ⌘ on these events must not leak into the session's modifier state,
+        // where the next synthetic key (or the person's) would read as ⌘-something.
+        let source = CGEventSource(stateID: .privateState)
         for isDown in [true, false] {
             let event = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: isDown)
             event?.flags = .maskCommand
