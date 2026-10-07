@@ -111,9 +111,13 @@ func hostTests() {
 }
 
 func keyLayoutTests() {
-    // Whatever the machine's layout, a Latin one has a key for "v" with ⌘ held, and it types back "v".
-    check("a key types v with command held", true, keyCode(typing: "v") != nil)
     check("no key types an emoji", nil, keyCode(typing: "\u{1F600}"))
+    // A runner without layout data has no answer for "v"; where there is one, it is a real key code.
+    if let v = keyCode(typing: "v") {
+        check("the key for v is a key code", true, v < 128)
+        check("v and b are different keys", true, keyCode(typing: "b").map { $0 != v } ?? true)
+    }
+    check("empty layout data finds nothing", nil, keyCode(typing: "v", layoutData: Data()))
 }
 
 func sanitizeTests() {
