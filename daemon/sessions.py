@@ -26,17 +26,56 @@ def _is_claude(args: list[str]) -> bool:
     return os.path.basename(args[0]) == "claude" or any(NPM_ENTRY in a for a in args[:2])
 
 
+def _is_session(tty: str, args: list[str]) -> bool:
+    """An interactive Claude Code process: claude with a terminal, not a background helper or -p."""
+    return tty not in ("??", "-") and _is_claude(args) and not NOT_A_SESSION & set(args[1:])
+
+
 def parse_sessions(ps_output: str) -> list[Session]:
     """Sessions from `ps -axo pid=,tty=,args=` output: a claude process with a terminal."""
     sessions = []
     for line in ps_output.splitlines():
         parts = line.split(None, 2)
-        if len(parts) < 3 or not parts[0].isdigit() or parts[1] in ("??", "-"):
+        if len(parts) < 3 or not parts[0].isdigit():
             continue
-        args = parts[2].split()
-        if _is_claude(args) and not NOT_A_SESSION & set(args[1:]):
+        if _is_session(parts[1], parts[2].split()):
             sessions.append(Session(int(parts[0]), parts[1]))
     return sessions
+
+
+MAX_ANCESTRY = 64  # deeper than any real process tree; also ends a parent loop
+
+
+def sessions_under(ps_output: str, app_pid: int) -> list[Session]:
+    """Sessions (as parse_sessions) running inside the app with this pid, from
+    `ps -axo pid=,ppid=,tty=,args=` output: the app is one of the session's ancestors.
+
+    launchd (pid 1) is everyone's ancestor, so it hosts nothing. A tmux or screen session's
+    server is launchd's child, so it belongs to no app.
+    """
+    if app_pid <= 1:
+        return []
+    parent: dict[int, int] = {}
+    candidates: list[Session] = []
+    for line in ps_output.splitlines():
+        parts = line.split(None, 3)
+        if len(parts) < 4 or not (parts[0].isdigit() and parts[1].isdigit()):
+            continue
+        pid, ppid = int(parts[0]), int(parts[1])
+        parent[pid] = ppid
+        if _is_session(parts[2], parts[3].split()):
+            candidates.append(Session(pid, parts[2]))
+    found = []
+    for session in candidates:
+        pid = session.pid
+        for _ in range(MAX_ANCESTRY):
+            pid = parent.get(pid, 0)
+            if pid <= 1:
+                break
+            if pid == app_pid:
+                found.append(session)
+                break
+    return found
 
 
 def run_ps(tty: str | None = None) -> str | None:
@@ -50,6 +89,34 @@ def run_ps(tty: str | None = None) -> str | None:
     if done.returncode == 0 or (tty and done.returncode == 1 and not done.stdout):
         return done.stdout  # ps -t exits 1 for a terminal that no longer exists: nothing runs there
     return None
+
+
+MAX_PID = 10_000_000  # far above macOS's limit (99998); rejects absurd query values
+
+
+def parse_pid(value: str | None) -> int | None:
+    """An app pid from a query string: digits only, above launchd's 1, below MAX_PID."""
+    if not value or not value.isdigit() or len(value) > len(str(MAX_PID)):
+        return None
+    pid = int(value)
+    return pid if 1 < pid < MAX_PID else None
+
+
+def host_payload(ps_output: str, app_pid: int, guarded: list[str]) -> dict:
+    """GET /host's answer: the app's sessions, each with whether it shows a menu (a prompt or a
+    question that pasted text would answer)."""
+    return {"pid": app_pid,
+            "sessions": [{"tty": s.tty, "guarded": s.tty in guarded} for s in sessions_under(ps_output, app_pid)]}
+
+
+def run_ps_tree() -> str | None:
+    """All processes with their parents, for sessions_under (~0.15 s)."""
+    try:
+        done = subprocess.run(["ps", "-axo", "pid=,ppid=,tty=,args="], capture_output=True, text=True,
+                              timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout if done.returncode == 0 else None
 
 
 def runs_claude(tty: str, scan: Callable[[str], str | None] = run_ps) -> bool | None:

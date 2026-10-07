@@ -8,6 +8,7 @@
   GET  /health  {"name", "version", "home", "ready", "models", "sessions", "guarded", "player", ...};
                 503 while loading
   GET  /session?tty=X  {"open", "guarded"} for one terminal (fast: scans only that tty)
+  GET  /host?pid=N     {"pid", "sessions": [{"tty", "guarded"}]}: Claude sessions inside that app
   GET  /config  voice-input settings
 /guard, and ?tty=X on /speak and /stop (a reply or prompt closes that session's menus), need the
 X-Voice-Conversation-Hook header, which a web page can't send to localhost without a CORS preflight.
@@ -32,7 +33,7 @@ from guard import PromptGuard, is_tty
 from jobs import CancelRing, Job, JobBoard, queue_age_limit
 from localonly import LocalOnlyHandler
 from models import ModelManager
-from sessions import SessionWatch, runs_claude
+from sessions import SessionWatch, host_payload, parse_pid, run_ps_tree, runs_claude
 from player import Player
 from settings import (HOME, MIN_SPEED, VOICES_DIR, char_limit, speech_speed, stt_language,
                       unload_minutes)
@@ -258,6 +259,8 @@ def make_handler(speaker: Speaker):
             path, _, query = self.path.partition("?")
             if path == "/session":
                 return self._session(parse_qs(query).get("tty", [None])[0])
+            if path == "/host":
+                return self._host(parse_qs(query).get("pid", [None])[0])
             if self.path == "/config":
                 return self._json(200, {"lang": stt_language(), "voice_input": stt.is_installed(HOME)})
             if self.path != "/health":
@@ -280,6 +283,16 @@ def make_handler(speaker: Speaker):
             if is_open is None:
                 return self._reply(503)
             self._json(200, {"tty": tty, "open": is_open, "guarded": tty in speaker.guard.guarded(),
+                             "voice_input": stt.is_installed(HOME)})
+
+        def _host(self, value: str | None):  # hotkey helper: Claude sessions inside the front app
+            pid = parse_pid(value)
+            if pid is None:
+                return self._reply(400)
+            output = run_ps_tree()
+            if output is None:
+                return self._reply(503)
+            self._json(200, {**host_payload(output, pid, speaker.guard.guarded()),
                              "voice_input": stt.is_installed(HOME)})
 
         def _json(self, code: int, obj: dict):
