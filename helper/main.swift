@@ -1,6 +1,7 @@
-// Voice Conversation Hotkey: double-tap a key (default Right Option) in an iTerm2 or Terminal.app tab
-// that runs Claude Code, speak, tap once more, and the local transcript lands in the prompt.
-// Elsewhere the key does nothing. Runs as the LaunchAgent com.voice-conversation.hotkey:
+// Voice Conversation Hotkey: double-tap a key (default Right Option) in an app where Claude Code
+// runs, speak, tap once more, and the local transcript lands in the prompt: typed into the tab in
+// iTerm2 and Terminal.app, pasted where the keyboard focus is anywhere else (IDEs, Ghostty, ...).
+// In an app without a Claude Code session the key does nothing. Runs as the LaunchAgent com.voice-conversation.hotkey:
 //   VoiceConversationHotkey <plugin data dir>
 // Settings (files in the data dir): hotkey = right-option|right-command|fn|off, autosend = on|off.
 
@@ -11,9 +12,9 @@ func log(_ message: String) {
     fflush(stdout)
 }
 
-struct Target {
-    let app: TerminalApp
-    let tty: String
+enum Target {
+    case tab(TerminalApp, tty: String)       // iTerm2 / Terminal.app: the tab is known by its tty
+    case host(pid: pid_t, name: String)      // any other app: pasted where the focus is
 }
 
 enum Phase {
@@ -141,8 +142,10 @@ final class Controller {
     }
 
     func beginListening() {
-        guard let id = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
-              let app = TerminalApp(rawValue: id) else { return }
+        guard let front = NSWorkspace.shared.frontmostApplication else { return }
+        guard let app = front.bundleIdentifier.flatMap(TerminalApp.init) else {
+            return beginListening(inHost: front)
+        }
         let frontTTY: String?
         do {
             frontTTY = try terminals.frontTTY(app)
@@ -155,7 +158,20 @@ final class Controller {
             return hud.show("voice-conversation: the speech service is not running (or still loading)", for: 3)
         }
         guard tab.runsClaude else { return }  // this tab isn't running Claude Code
-        guard tab.voiceInput else { return hud.show("Voice input is not set up: run /speak setup input", for: 4) }
+        startRecording(.tab(app, tty: tty), voiceInput: tab.voiceInput, label: "\(app) \(tty)")
+    }
+
+    /// An app that isn't iTerm2 or Terminal.app: it arms only while Claude Code runs inside it.
+    func beginListening(inHost front: NSRunningApplication) {
+        let pid = front.processIdentifier
+        guard let host = daemon.host(pid) else { return log("speech service did not answer /host") }
+        guard armsInApp(host.sessions) else { return }  // no Claude Code session in this app
+        let name = front.localizedName ?? "app \(pid)"
+        startRecording(.host(pid: pid, name: name), voiceInput: host.voiceInput, label: name)
+    }
+
+    func startRecording(_ target: Target, voiceInput: Bool, label: String) {
+        guard voiceInput else { return hud.show("Voice input is not set up: run /speak setup input", for: 4) }
         guard Permissions.microphone == "granted" else {
             requestMicrophone()
             Permissions.writeStatus(dataDir: dataDir, hotkey: hotkey)
@@ -168,9 +184,9 @@ final class Controller {
             log("microphone error: \(error)")
             return hud.show("Could not start the microphone", for: 3)
         }
-        phase = .listening(Target(app: app, tty: tty))
+        phase = .listening(target)
         hud.show("● Listening — tap \(hotkey.label) to stop")
-        log("listening in \(app) \(tty)")
+        log("listening in \(label)")
     }
 
     func finishListening() {
@@ -203,6 +219,32 @@ final class Controller {
 
     func deliver(_ text: String, to target: Target) {
         guard !text.isEmpty else { return hud.show("Didn't catch that", for: 2) }
+        switch target {
+        case .tab(let app, let tty): deliver(text, app: app, tty: tty)
+        case .host(let pid, let name): deliver(text, host: pid, name: name)
+        }
+    }
+
+    /// Pasted where the focus is, if the app is still in front, still runs Claude Code, and no
+    /// session in it shows a menu. Never submitted: which pane has the focus isn't knowable here.
+    func deliver(_ text: String, host pid: pid_t, name: String) {
+        let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let sessions = front == pid ? daemon.host(pid)?.sessions : nil
+        switch pasteDecision(armedPid: pid, frontPid: front, sessions: sessions) {
+        case .clipboard(let reason):
+            copy(text, "Copied (\(reason.message)) — paste with ⌘V")
+        case .paste:
+            guard Permissions.accessibility else {
+                Permissions.askAccessibility()
+                return copy(text, permissionMessage("Accessibility", "paste into \(name)") + ". Copied: paste with ⌘V")
+            }
+            KeyPaste.paste(text)
+            hud.hide()
+        }
+    }
+
+    func deliver(_ text: String, app: TerminalApp, tty: String) {
+        let target = (app: app, tty: tty)
         let tab = daemon.tab(target.tty)  // no answer: nothing is known to be safe, so the clipboard
         let frontApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier.flatMap(TerminalApp.init)
         let now = DeliveryState(sessions: tab?.runsClaude == true ? [target.tty] : [],

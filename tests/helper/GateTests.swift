@@ -80,6 +80,36 @@ func deliveryTests() {
           delivery(app: .terminal, tty: "ttys009", now: with { $0.frontApp = nil }))
 }
 
+func hostTests() {
+    let json = #"{"pid": 500, "voice_input": true, "sessions": [{"tty": "ttys010", "guarded": false}, {"tty": "ttys011", "guarded": true}]}"#
+    let host = parseHost(Data(json.utf8))
+    check("host parsed", HostState(sessions: [HostSession(tty: "ttys010", guarded: false),
+                                              HostSession(tty: "ttys011", guarded: true)], voiceInput: true), host)
+    check("host without sessions parses as empty", HostState(sessions: [], voiceInput: false),
+          parseHost(Data(#"{"pid": 9, "sessions": []}"#.utf8)))
+    check("garbage is no answer", nil, parseHost(Data("not json".utf8)))
+    check("a session without a tty is dropped", HostState(sessions: [], voiceInput: false),
+          parseHost(Data(#"{"sessions": [{"guarded": true}]}"#.utf8)))
+
+    let one = [HostSession(tty: "ttys010", guarded: false)]
+    check("arms in an app running Claude Code", true, armsInApp(one))
+    check("no session in the app: does not arm", false, armsInApp([]))
+    check("service did not answer: does not arm", false, armsInApp(nil))
+
+    check("same app, session idle: pastes", PasteDecision.paste, pasteDecision(armedPid: 500, frontPid: 500, sessions: one))
+    check("app changed while transcribing: clipboard", PasteDecision.clipboard(.appChanged),
+          pasteDecision(armedPid: 500, frontPid: 600, sessions: one))
+    check("no front app: clipboard", PasteDecision.clipboard(.appChanged),
+          pasteDecision(armedPid: 500, frontPid: nil, sessions: one))
+    check("Claude Code exited meanwhile: clipboard", PasteDecision.clipboard(.noSession),
+          pasteDecision(armedPid: 500, frontPid: 500, sessions: []))
+    check("service silent at delivery: clipboard", PasteDecision.clipboard(.serviceSilent),
+          pasteDecision(armedPid: 500, frontPid: 500, sessions: nil))
+    check("a session in the app shows a menu: clipboard", PasteDecision.clipboard(.menuOpen),
+          pasteDecision(armedPid: 500, frontPid: 500,
+                        sessions: one + [HostSession(tty: "ttys011", guarded: true)]))
+}
+
 func sanitizeTests() {
     check("newlines become spaces", "fix the bug and run tests", sanitizeTranscript("fix the bug\nand run\r\ntests\n"))
     check("escape sequences neutralised", "[31m red", sanitizeTranscript("\u{1B}[31m red"))
@@ -120,6 +150,7 @@ struct GateTests {
         detectorTests()
         hotkeyTests()
         deliveryTests()
+        hostTests()
         sanitizeTests()
         wavTests()
         appleScriptTests()

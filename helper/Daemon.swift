@@ -28,6 +28,12 @@ final class Daemon: @unchecked Sendable {
         return TabState(runsClaude: open, guarded: guarded, voiceInput: json["voice_input"] as? Bool ?? false)
     }
 
+    /// The Claude Code sessions inside the app with this pid; nil when the service can't answer.
+    func host(_ pid: pid_t) -> HostState? {
+        guard let (code, data) = request("host?pid=\(pid)", timeout: Self.queryTimeout), code == 200 else { return nil }
+        return parseHost(data)
+    }
+
     /// Silences speech (empty body = every session) and starts loading Whisper.
     func prepare() {
         _ = request("stop", body: Data())

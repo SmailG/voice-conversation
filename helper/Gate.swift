@@ -136,6 +136,62 @@ func delivery(app: TerminalApp, tty: String, now: DeliveryState) -> Delivery {
     return .type
 }
 
+// Apps other than iTerm2 and Terminal.app (IDEs, Ghostty, Warp, ...): no tab is addressable, so
+// the transcript is pasted where the keyboard focus is. Three guards keep that safe: the app must
+// run Claude Code, it must still be the front app at delivery, and no session in it may show a menu.
+
+/// A Claude Code session inside the front app, as the speech service's /host reports it.
+struct HostSession: Equatable {
+    let tty: String
+    let guarded: Bool  // it shows a permission prompt, question or form
+}
+
+struct HostState: Equatable {
+    let sessions: [HostSession]
+    let voiceInput: Bool  // Whisper is installed
+}
+
+/// GET /host's JSON; nil when it isn't an answer at all.
+func parseHost(_ data: Data) -> HostState? {
+    guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let list = json["sessions"] as? [[String: Any]] else { return nil }
+    let sessions = list.compactMap { entry -> HostSession? in
+        guard let tty = entry["tty"] as? String else { return nil }
+        return HostSession(tty: tty, guarded: entry["guarded"] as? Bool ?? false)
+    }
+    return HostState(sessions: sessions, voiceInput: json["voice_input"] as? Bool ?? false)
+}
+
+/// A double-tap in such an app records only while Claude Code runs in it (nil: no answer).
+func armsInApp(_ sessions: [HostSession]?) -> Bool {
+    !(sessions ?? []).isEmpty
+}
+
+enum ClipboardReason: Equatable {
+    case appChanged, serviceSilent, noSession, menuOpen
+
+    var message: String {
+        switch self {
+        case .appChanged: return "you switched apps"
+        case .serviceSilent: return "the speech service didn't answer"
+        case .noSession: return "Claude Code no longer runs there"
+        case .menuOpen: return "Claude is waiting for an answer"
+        }
+    }
+}
+
+enum PasteDecision: Equatable { case paste, clipboard(ClipboardReason) }
+
+/// At delivery: paste into the app the recording started in, if it is still in front, still runs
+/// Claude Code, and none of its sessions shows a menu that the pasted text would answer.
+func pasteDecision(armedPid: pid_t, frontPid: pid_t?, sessions: [HostSession]?) -> PasteDecision {
+    guard frontPid == armedPid else { return .clipboard(.appChanged) }
+    guard let sessions else { return .clipboard(.serviceSilent) }
+    guard !sessions.isEmpty else { return .clipboard(.noSession) }
+    guard !sessions.contains(where: { $0.guarded }) else { return .clipboard(.menuOpen) }
+    return .paste
+}
+
 /// Make a transcript safe to type into Claude Code: control and format characters (newlines that
 /// would submit, escape sequences) and any Unicode space become plain spaces, and a leading "/",
 /// "!", "#" or "?" (a command, shell mode, memory, help) is dropped.

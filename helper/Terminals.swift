@@ -103,12 +103,39 @@ final class Terminals {
     }
 }
 
+/// Pastes into whatever has the keyboard focus in the front app: the transcript goes on the
+/// clipboard, a synthetic ⌘V follows (Accessibility, no Automation grant), and the person's own
+/// clipboard comes back once the app has read it.
+enum KeyPaste {
+    static let vKey: CGKeyCode = 9  // kVK_ANSI_V
+
+    static func paste(_ text: String) {
+        let saved = Clipboard.snapshot()
+        Clipboard.set(text)
+        let source = CGEventSource(stateID: .combinedSessionState)
+        for isDown in [true, false] {
+            let event = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: isDown)
+            event?.flags = .maskCommand
+            event?.post(tap: .cghidEventTap)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Terminals.clipboardRestore) { Clipboard.restore(saved) }
+    }
+}
+
 enum Clipboard {
     typealias Snapshot = [[NSPasteboard.PasteboardType: Data]]
 
+    /// The nspasteboard.org markers: clipboard managers (Raycast, Paste, Maccy, ...) don't keep
+    /// a history entry for it, so dictations don't pile up there.
+    static let transientMarkers = [NSPasteboard.PasteboardType("org.nspasteboard.TransientType"),
+                                   NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")]
+
     static func set(_ text: String) {
+        let item = NSPasteboardItem()
+        item.setString(text, forType: .string)
+        for marker in transientMarkers { item.setData(Data(), forType: marker) }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        NSPasteboard.general.writeObjects([item])
     }
 
     static func snapshot() -> Snapshot {
